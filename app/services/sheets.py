@@ -448,28 +448,37 @@ class SheetsClient:
             return ws
 
     def get_all_applicants(self) -> list[ApplicantEntry]:
-        """Return all applicant rows (skips header row 1)."""
+        """Return all applicant rows (skips header row 1).
+        Raises SheetsUnavailableError on quota/API errors."""
         try:
             sheet = self._get_applicant_spreadsheet().sheet1
             all_rows = sheet.get_all_values()
             if len(all_rows) < 2:
                 return []
-            # all_rows[0] is the header; data starts at index 1 (row 2 in sheet)
             return [
                 ApplicantEntry.from_row(row_index=i + 2, row=row)
                 for i, row in enumerate(all_rows[1:])
                 if any(cell.strip() for cell in row)
             ]
+        except gspread.exceptions.APIError as e:
+            logger.error("Sheets API error getting applicants: %s", e)
+            raise SheetsUnavailableError(str(e)) from e
         except Exception as e:
             logger.error("Failed to get applicants: %s", e)
             return []
 
     def get_applicant_by_row(self, row_index: int) -> ApplicantEntry | None:
-        """Return the applicant at the given 1-based row index."""
+        """Return the applicant at the given 1-based row index.
+        Raises SheetsUnavailableError on API/quota errors so callers can return 503."""
         try:
             sheet = self._get_applicant_spreadsheet().sheet1
             row = sheet.row_values(row_index)
+            if not any(cell.strip() for cell in row):
+                return None  # genuinely empty row → 404
             return ApplicantEntry.from_row(row_index=row_index, row=row)
+        except gspread.exceptions.APIError as e:
+            logger.error("Sheets API error getting applicant row %s: %s", row_index, e)
+            raise SheetsUnavailableError(str(e)) from e
         except Exception as e:
             logger.error("Failed to get applicant row %s: %s", row_index, e)
             return None

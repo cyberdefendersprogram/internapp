@@ -3,14 +3,14 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader
 
 from app.config import settings
 from app.dependencies import AdminOrMentorSession, AdminSession, templates
 from app.services.email import send_email
-from app.services.sheets import get_sheets_client
+from app.services.sheets import SheetsUnavailableError, get_sheets_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/applicants")
@@ -31,7 +31,12 @@ async def applicants_list(request: Request, session: AdminOrMentorSession):
             status_code=503,
         )
     sheets = get_sheets_client()
-    applicants = sheets.get_all_applicants()
+    try:
+        applicants = sheets.get_all_applicants()
+    except SheetsUnavailableError:
+        raise HTTPException(
+            status_code=503, detail="Sheets temporarily unavailable — please retry in a moment."
+        )
 
     feedback_counts: dict[int, int] = {}
     for app in applicants:
@@ -51,7 +56,12 @@ async def applicants_list(request: Request, session: AdminOrMentorSession):
 @router.get("/{row_index}", response_class=HTMLResponse)
 async def applicant_interview(request: Request, row_index: int, session: AdminOrMentorSession):
     sheets = get_sheets_client()
-    applicant = sheets.get_applicant_by_row(row_index)
+    try:
+        applicant = sheets.get_applicant_by_row(row_index)
+    except SheetsUnavailableError:
+        raise HTTPException(
+            status_code=503, detail="Sheets temporarily unavailable — please retry in a moment."
+        )
     if not applicant:
         return HTMLResponse("Applicant not found.", status_code=404)
 
