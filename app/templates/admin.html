@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Interns</a>
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/program">Public View</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div class="level">
+  <div class="level-left">
+    <h1 class="title cdp-heading">Admin Dashboard</h1>
+  </div>
+  <div class="level-right">
+    <div class="tags">
+      <span class="tag" style="background:var(--cdp-blue);color:#fff;">{{ total_interns }} Total</span>
+      <span class="tag is-checkedin">{{ claimed_interns }} Claimed</span>
+      <span class="tag is-light">Week {{ week_number }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="card is-detail">
+  <div class="card-content" style="overflow-x:auto;">
+    <table class="table is-fullwidth is-striped is-hoverable is-size-7">
+      <thead>
+        <tr>
+          <th>Intern</th>
+          <th>Track</th>
+          <th>Email</th>
+          <th>Deliverables</th>
+          {% for w in range(1, total_weeks + 1) %}
+          <th style="text-align:center;">W{{ w }}</th>
+          {% endfor %}
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in intern_rows %}
+        <tr>
+          <td>
+            <a href="/admin/intern/{{ row.intern.intern_id }}" style="font-weight:700;color:var(--cdp-navy);">
+              {{ row.intern.display_name }}
+            </a>
+            <br>
+            <span style="color:#aaa;font-family:'Roboto Mono',monospace;">{{ row.intern.intern_id }}</span>
+          </td>
+          <td>{{ row.track.name if row.track else row.intern.track_id }}</td>
+          <td>
+            {% if row.intern.preferred_email %}
+            <span style="color:#555;">{{ row.intern.preferred_email }}</span>
+            {% else %}
+            <span class="tag is-warning is-light">Unclaimed</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;">{{ row.deliverable_count }}</td>
+          {% for w in range(1, total_weeks + 1) %}
+          <td style="text-align:center;">
+            {% if row.weekly_status.get(w) %}
+            <span class="week-dot done" title="Submitted"></span>
+            {% elif w == week_number %}
+            <span class="week-dot current" title="Current week"></span>
+            {% else %}
+            <span class="week-dot" title="Not submitted"></span>
+            {% endif %}
+          </td>
+          {% endfor %}
+          <td>
+            <a href="/admin/intern/{{ row.intern.intern_id }}" class="button is-small is-light">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mt-4">
+  <p class="is-size-7 has-text-grey">
+    Legend:
+    <span class="week-dot done" style="display:inline-block;vertical-align:middle;"></span> Submitted &nbsp;
+    <span class="week-dot current" style="display:inline-block;vertical-align:middle;"></span> Current week &nbsp;
+    <span class="week-dot" style="display:inline-block;vertical-align:middle;"></span> Not submitted
+  </p>
+</div>
+{% endblock %}

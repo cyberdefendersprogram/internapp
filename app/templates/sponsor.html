@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Sponsor View — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/sponsor">My Track</a>
+<a class="navbar-item" href="/sponsor/feedback">Submit Feedback</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">
+  {% if is_admin_view %}All Tracks{% elif track %}{{ track.name }}{% else %}Sponsor Dashboard{% endif %}
+</h1>
+
+{% if is_admin_view and track_data %}
+{% for td in track_data %}
+<div class="card is-track mb-4">
+  <div class="card-content">
+    <h2 class="subtitle is-6 cdp-heading">{{ td.track.name }}</h2>
+    <p style="color:#888;font-size:13px;">Mentor: {{ td.track.employer_sponsor }}</p>
+    <table class="table is-fullwidth is-striped is-size-7 mt-3">
+      <thead>
+        <tr>
+          <th>Intern</th>
+          <th>Week {{ week_number }} Check-In</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in td.interns %}
+        <tr>
+          <td>{{ row.intern.display_name }}</td>
+          <td>
+            {% if row.checked_in %}
+            <span class="tag is-checkedin">Done</span>
+            {% else %}
+            <span class="tag is-missing">Missing</span>
+            {% endif %}
+          </td>
+          <td><a href="/sponsor/intern/{{ row.intern.intern_id }}" style="color:var(--cdp-blue);">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+<p class="subtitle is-6" style="color:#888;">
+  Week {{ week_number }} &mdash; {{ track.employer_sponsor if track else '' }}
+</p>
+
+{% if intern_rows %}
+<div class="card is-detail">
+  <div class="card-content">
+    <table class="table is-fullwidth is-striped">
+      <thead>
+        <tr>
+          <th>Intern</th>
+          <th>Week {{ week_number }} Check-In</th>
+          <th>Deliverables</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in intern_rows %}
+        <tr>
+          <td>
+            <strong>{{ row.intern.display_name }}</strong>
+            <br><span class="is-size-7 has-text-grey">{{ row.intern.school or '' }}</span>
+          </td>
+          <td>
+            {% if row.checked_in %}
+            <span class="tag is-checkedin">Done ✓</span>
+            {% else %}
+            <span class="tag is-missing">Missing</span>
+            {% endif %}
+          </td>
+          <td>{{ row.deliverable_count }}</td>
+          <td>
+            <a href="/sponsor/intern/{{ row.intern.intern_id }}" class="button is-small is-light">
+              View
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="notification is-info is-light">No interns on your track yet.</div>
+{% endif %}
+{% endif %}
+{% endblock %}

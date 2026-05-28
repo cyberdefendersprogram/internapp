@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Claim Account — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-centered">
+  <div class="column is-half">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h1 class="title cdp-heading" style="font-size:1.5rem;">Claim Your Intern Account</h1>
+        <p class="subtitle is-6" style="color:#555;">
+          Signing in as <strong>{{ email }}</strong>.<br>
+          Enter your Intern ID to link your account. Your coordinator should have provided this.
+        </p>
+
+        {% if error %}
+        <div class="notification is-danger is-light">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/claim">
+          <input type="hidden" name="email" value="{{ email }}">
+          <div class="field">
+            <label class="label">Intern ID</label>
+            <div class="control">
+              <input
+                class="input"
+                type="text"
+                name="intern_id"
+                placeholder="e.g., CDP-2026-001"
+                required
+                autofocus
+                style="font-family:'Roboto Mono',monospace;"
+              >
+            </div>
+            <p class="help">Your Intern ID was provided by your program coordinator.</p>
+          </div>
+          <div class="field">
+            <div class="control">
+              <button type="submit" class="button is-primary">Claim Account</button>
+            </div>
+          </div>
+        </form>
+
+        <hr>
+        <p class="is-size-7 has-text-grey">
+          Wrong email? <a href="/">Sign in with a different email</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

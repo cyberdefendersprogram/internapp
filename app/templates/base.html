@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Cyber Defenders Program — Intern Portal{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cdp-navy: #062F49;
+      --cdp-blue: #5893BC;
+      --cdp-salmon: #FA7C91;
+      --cdp-light: #EFF3F4;
+      --cdp-footnote: #F1F3FA;
+    }
+
+    body {
+      font-family: 'Lato', system-ui, sans-serif;
+      background: var(--cdp-light);
+      min-height: 100vh;
+    }
+
+    .is-cdp-navy { background-color: var(--cdp-navy) !important; }
+    .has-text-cdp-blue { color: var(--cdp-blue) !important; }
+    .has-text-cdp-navy { color: var(--cdp-navy) !important; }
+    .has-text-cdp-salmon { color: var(--cdp-salmon) !important; }
+
+    h1, h2, h3.is-mono { font-family: 'Roboto Mono', monospace; font-weight: 700; }
+    .cdp-heading {
+      font-family: 'Roboto Mono', monospace;
+      color: var(--cdp-blue);
+      font-weight: 700;
+    }
+
+    .card.is-track { border-left: 4px solid var(--cdp-salmon); }
+    .card.is-detail { border-top: 4px solid var(--cdp-blue); }
+
+    .button.is-primary {
+      background-color: var(--cdp-salmon) !important;
+      border-color: transparent !important;
+      color: #fff !important;
+    }
+    .button.is-primary:hover {
+      background-color: #e8607a !important;
+    }
+
+    /* Navbar */
+    .navbar.is-cdp {
+      background-color: var(--cdp-navy);
+    }
+    .navbar.is-cdp .navbar-item,
+    .navbar.is-cdp .navbar-link {
+      color: rgba(255,255,255,0.85);
+    }
+    .navbar.is-cdp .navbar-item:hover,
+    .navbar.is-cdp .navbar-link:hover {
+      background-color: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .navbar.is-cdp .navbar-burger span { background-color: #fff; }
+    .navbar.is-cdp .navbar-menu { background-color: var(--cdp-navy); }
+
+    /* Status badges */
+    .tag.is-checkedin { background: #48c78e; color: #fff; }
+    .tag.is-missing { background: var(--cdp-salmon); color: #fff; }
+    .tag.is-pending { background: #dbdbdb; color: #555; }
+
+    /* Week status grid */
+    .week-dot {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #dbdbdb;
+      margin: 2px;
+    }
+    .week-dot.done { background: #48c78e; }
+    .week-dot.current { background: var(--cdp-salmon); }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% block navbar %}
+  <nav class="navbar is-cdp" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="/">
+        <img src="/static/images/logo.png" alt="CDP Logo" height="32" style="max-height:32px;">
+        <span style="color:#fff;font-family:'Roboto Mono',monospace;font-weight:700;font-size:14px;margin-left:8px;">
+          Intern Portal
+        </span>
+      </a>
+      <a role="button" class="navbar-burger" data-target="cdpNavbar" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </a>
+    </div>
+    <div id="cdpNavbar" class="navbar-menu">
+      <div class="navbar-end">
+        {% block nav_links %}{% endblock %}
+      </div>
+    </div>
+  </nav>
+  {% endblock %}
+
+  <section class="section" style="padding-top:1.5rem;">
+    <div class="container">
+      {% if error %}
+      <div class="notification is-danger is-light mb-4">
+        <button class="delete" onclick="this.parentElement.remove()"></button>
+        {{ error }}
+      </div>
+      {% endif %}
+      {% if success %}
+      <div class="notification is-success is-light mb-4">
+        <button class="delete" onclick="this.parentElement.remove()"></button>
+        {{ success }}
+      </div>
+      {% endif %}
+      {% if info %}
+      <div class="notification is-info is-light mb-4">
+        <button class="delete" onclick="this.parentElement.remove()"></button>
+        {{ info }}
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </section>
+
+  <footer class="footer" style="background:var(--cdp-footnote);padding:2rem;">
+    <div class="content has-text-centered">
+      <p style="color:#888;font-size:13px;">
+        &copy; 2026 Cyber Defenders Program.
+        <a href="/program" style="color:var(--cdp-blue);">Public Dashboard</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // Navbar burger
+    document.addEventListener('DOMContentLoaded', () => {
+      const burger = document.querySelector('.navbar-burger');
+      if (burger) {
+        burger.addEventListener('click', () => {
+          const menu = document.getElementById(burger.dataset.target);
+          burger.classList.toggle('is-active');
+          if (menu) menu.classList.toggle('is-active');
+        });
+      }
+    });
+  </script>
+</body>
+</html>

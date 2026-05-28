@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Onboarding — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-centered">
+  <div class="column is-two-thirds">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h1 class="title cdp-heading" style="font-size:1.5rem;">Welcome to the Program, {{ intern.display_name }}!</h1>
+        <p class="subtitle is-6" style="color:#555;">
+          Complete your profile to get started. All fields are optional but help your coordinator and sponsor get to know you.
+        </p>
+
+        {% if error %}
+        <div class="notification is-danger is-light">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/onboarding">
+          {% for field in fields %}
+          <div class="field">
+            <label class="label">{{ field.label }}</label>
+            {% if field.type == "select" %}
+            <div class="control">
+              <div class="select is-fullwidth">
+                <select name="{{ field.key }}">
+                  {% for opt in field.options %}
+                  <option value="{{ opt.value }}">{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            {% elif field.type == "textarea" %}
+            <div class="control">
+              <textarea class="textarea" name="{{ field.key }}" placeholder="{{ field.placeholder }}"></textarea>
+            </div>
+            {% else %}
+            <div class="control">
+              <input class="input" type="{{ field.type }}" name="{{ field.key }}" placeholder="{{ field.placeholder }}">
+            </div>
+            {% endif %}
+            {% if field.help %}
+            <p class="help">{{ field.help }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+
+          {% if not fields %}
+          <div class="notification is-info is-light">
+            Your profile is already complete! Click below to continue.
+          </div>
+          {% endif %}
+
+          <div class="field">
+            <div class="control">
+              <button type="submit" class="button is-primary">Complete Onboarding</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

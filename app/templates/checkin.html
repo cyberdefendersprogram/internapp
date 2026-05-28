@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Week {{ week_number }} Check-In — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/home">Home</a>
+<a class="navbar-item" href="/checkin">Check-In</a>
+<a class="navbar-item" href="/deliverables">Deliverables</a>
+<a class="navbar-item" href="/me">Profile</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">Week {{ week_number }} Check-In</h1>
+
+{% if already_submitted %}
+<div class="notification is-success is-light">
+  <strong>Check-in submitted!</strong> You've already submitted your check-in for Week {{ week_number }}.
+</div>
+{% if this_week_checkin %}
+<div class="card is-detail">
+  <div class="card-content">
+    <h2 class="subtitle is-6 cdp-heading">Your Week {{ week_number }} Update</h2>
+    <div class="field">
+      <label class="label is-small">What I did this week</label>
+      <div class="box" style="background:var(--cdp-light);padding:1rem;">
+        {{ this_week_checkin.status_update }}
+      </div>
+    </div>
+    {% if this_week_checkin.blockers %}
+    <div class="field">
+      <label class="label is-small">Blockers</label>
+      <div class="box" style="background:var(--cdp-light);padding:1rem;">{{ this_week_checkin.blockers }}</div>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label class="label is-small">Next steps</label>
+      <div class="box" style="background:var(--cdp-light);padding:1rem;">{{ this_week_checkin.next_steps }}</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+<a href="/home" class="button is-light mt-3">Back to Dashboard</a>
+{% else %}
+
+{% if error %}
+<div class="notification is-danger is-light">{{ error }}</div>
+{% endif %}
+
+<div class="card is-detail">
+  <div class="card-content">
+    <p class="is-size-7 has-text-grey mb-4">
+      Share what you worked on this week, any blockers you hit, and your plan for next week.
+    </p>
+    <form method="post" action="/checkin">
+      <div class="field">
+        <label class="label">What did you work on this week? <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <textarea class="textarea" name="status_update" rows="4"
+            placeholder="Describe your work, progress, and key accomplishments this week." required></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Blockers <span class="has-text-grey is-size-7">(optional)</span></label>
+        <div class="control">
+          <textarea class="textarea" name="blockers" rows="2"
+            placeholder="Any obstacles or things slowing you down? Leave blank if none."></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Next steps <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <textarea class="textarea" name="next_steps" rows="3"
+            placeholder="What will you focus on next week?" required></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <div class="control">
+          <button type="submit" class="button is-primary">Submit Week {{ week_number }} Check-In</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Cyber Defenders Program</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --cdp-navy: #062F49; --cdp-blue: #5893BC; --cdp-salmon: #FA7C91; }
+    body { font-family: 'Lato', sans-serif; margin: 0; padding: 0; min-height: 100vh;
+           background: linear-gradient(135deg, var(--cdp-navy) 0%, #0d4f7a 100%); }
+    .hero-content { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .signin-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 2.5rem;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .program-badge {
+      font-family: 'Roboto Mono', monospace;
+      color: var(--cdp-blue);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    h1 { font-family: 'Roboto Mono', monospace; color: var(--cdp-navy); font-size: 22px; font-weight: 700; margin: 0 0 8px; }
+    .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+    .field label { font-weight: 700; color: #444; font-size: 14px; }
+    .button.is-primary { background: var(--cdp-salmon); border: none; font-weight: 700; width: 100%; }
+    .button.is-primary:hover { background: #e8607a; }
+    .notification { font-size: 14px; margin-bottom: 16px; }
+    .logo-img { max-height: 48px; margin-bottom: 16px; }
+    .footer-note { font-size: 12px; color: #aaa; text-align: center; margin-top: 16px; }
+    .footer-note a { color: var(--cdp-blue); }
+  </style>
+</head>
+<body>
+  <div class="hero-content">
+    <div class="signin-box">
+      <img src="/static/images/logo-title.png" alt="Cyber Defenders Program" class="logo-img"
+           onerror="this.style.display='none'">
+      <div class="program-badge">Intern Portal</div>
+      <h1>Sign In</h1>
+      <p class="subtitle">Enter your email to receive a secure sign-in link.</p>
+
+      {% if error %}
+      <div class="notification is-danger is-light">{{ error }}</div>
+      {% endif %}
+
+      {% if success %}
+      <div class="notification is-success is-light">{{ success }}</div>
+      {% endif %}
+
+      {% if not success %}
+      <form method="post" action="/auth/request-link">
+        <div class="field">
+          <label class="label" for="email">Email Address</label>
+          <div class="control">
+            <input
+              class="input"
+              type="email"
+              id="email"
+              name="email"
+              placeholder="you@example.com"
+              required
+              autofocus
+            >
+          </div>
+        </div>
+        <div class="field">
+          <div class="control">
+            <button type="submit" class="button is-primary">Send Sign-In Link</button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+
+      <p class="footer-note">
+        No password needed. We'll email you a secure link valid for 15 minutes.<br>
+        <a href="/program">View public program dashboard</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

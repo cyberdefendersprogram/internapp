@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Lato,system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#062F49;padding:24px 32px;">
+          <p style="margin:0;color:#fff;font-family:'Roboto Mono',monospace;font-size:18px;font-weight:700;">
+            {{ program_title }}
+          </p>
+          <p style="margin:4px 0 0;color:#5893BC;font-size:13px;">Weekly Reminder</p>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h2 style="color:#062F49;font-size:20px;margin:0 0 16px;">
+            Week {{ week_number }} Check-In Is Open, {{ intern_name }}!
+          </h2>
+          <p style="color:#555;line-height:1.7;">
+            Time for your Week {{ week_number }} check-in. Share what you worked on,
+            any blockers, and your plans for next week.
+          </p>
+          <div style="margin:24px 0;text-align:center;">
+            <a href="{{ checkin_url }}"
+               style="background:#FA7C91;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:700;">
+              Submit Week {{ week_number }} Check-In
+            </a>
+          </div>
+          <p style="color:#777;font-size:13px;">
+            Track: <strong>{{ track_name }}</strong> | Mentor: {{ sponsor_name }}
+          </p>
+        </td></tr>
+        <tr><td style="background:#EFF3F4;padding:16px 32px;text-align:center;">
+          <p style="color:#999;font-size:12px;margin:0;">Cyber Defenders Program 2026</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

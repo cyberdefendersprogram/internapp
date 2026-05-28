@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Attendance — Admin — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Interns</a>
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">Attendance</h1>
+
+<div class="columns">
+  <!-- Log Form -->
+  <div class="column is-one-third">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="subtitle is-6 cdp-heading">Log Attendance</h2>
+        <form method="post" action="/admin/attendance">
+          <div class="field">
+            <label class="label is-small">Session Date</label>
+            <div class="control">
+              <input class="input is-small" type="date" name="session_date" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Session Type</label>
+            <div class="control">
+              <div class="select is-small is-fullwidth">
+                <select name="session_type" required>
+                  <option value="weekly-sync">Weekly Sync</option>
+                  <option value="in-person">In-Person</option>
+                  <option value="kickoff">Kickoff</option>
+                  <option value="demo-day">Demo Day</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Intern</label>
+            <div class="control">
+              <div class="select is-small is-fullwidth">
+                <select name="intern_id" required>
+                  <option value="">-- Select --</option>
+                  {% for i in interns %}
+                  <option value="{{ i.intern_id }}">{{ i.display_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Present?</label>
+            <div class="control">
+              <label class="checkbox">
+                <input type="checkbox" name="present" value="TRUE"> Present
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Notes (optional)</label>
+            <div class="control">
+              <input class="input is-small" type="text" name="notes" placeholder="Optional note">
+            </div>
+          </div>
+          <button type="submit" class="button is-primary is-small">Log Attendance</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Table -->
+  <div class="column">
+    <div class="card is-detail">
+      <div class="card-content" style="overflow-x:auto;">
+        <h2 class="subtitle is-6 cdp-heading">Attendance Log</h2>
+        {% if attendance %}
+        <table class="table is-fullwidth is-striped is-size-7">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Intern ID</th>
+              <th>Present</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in attendance %}
+            <tr>
+              <td>{{ a.session_date }}</td>
+              <td>{{ a.session_type }}</td>
+              <td><code>{{ a.intern_id }}</code></td>
+              <td>
+                {% if a.present == "TRUE" or a.present == True %}
+                <span class="tag is-checkedin">Yes</span>
+                {% else %}
+                <span class="tag is-missing">No</span>
+                {% endif %}
+              </td>
+              <td>{{ a.notes or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="is-size-7 has-text-grey">No attendance records yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ intern.display_name }} — Admin — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Interns</a>
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div class="level mb-2">
+  <div class="level-left">
+    <h1 class="title cdp-heading" style="margin:0;">{{ intern.display_name }}</h1>
+  </div>
+  <div class="level-right">
+    <a href="/admin" class="button is-light is-small">← All Interns</a>
+  </div>
+</div>
+
+<!-- Intern info -->
+<div class="card is-detail mb-4">
+  <div class="card-content">
+    <div class="columns is-multiline is-size-7">
+      <div class="column is-half">
+        <p><strong>Intern ID:</strong> <code>{{ intern.intern_id }}</code></p>
+        <p><strong>Full Name:</strong> {{ intern.full_name }}</p>
+        <p><strong>Email:</strong> {{ intern.preferred_email or 'Unclaimed' }}</p>
+        <p><strong>Track:</strong> {{ track.name if track else intern.track_id }}</p>
+      </div>
+      <div class="column is-half">
+        <p><strong>School:</strong> {{ intern.school or '—' }}</p>
+        <p><strong>Year:</strong> {{ intern.year or '—' }}</p>
+        <p><strong>Claimed:</strong> {{ intern.claimed_at.strftime('%Y-%m-%d') if intern.claimed_at else 'No' }}</p>
+        <p><strong>Onboarded:</strong> {{ intern.onboarding_completed_at.strftime('%Y-%m-%d') if intern.onboarding_completed_at else 'No' }}</p>
+      </div>
+      {% if intern.bio %}
+      <div class="column is-full">
+        <p><strong>Bio:</strong> {{ intern.bio }}</p>
+      </div>
+      {% endif %}
+      {% if intern.linkedin or intern.github %}
+      <div class="column is-full">
+        {% if intern.linkedin %}<a href="{{ intern.linkedin }}" target="_blank" style="color:var(--cdp-blue);margin-right:12px;">LinkedIn</a>{% endif %}
+        {% if intern.github %}<a href="{{ intern.github }}" target="_blank" style="color:var(--cdp-blue);">GitHub</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="columns">
+  <!-- Check-ins -->
+  <div class="column">
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;margin-bottom:8px;">CHECK-INS ({{ checkins|length }})</h2>
+        {% for c in checkins %}
+        <div style="border-bottom:1px solid #eee;padding:8px 0;">
+          <p style="font-size:12px;font-weight:700;color:var(--cdp-navy);">Week {{ c.week_number }}</p>
+          <p style="font-size:12px;color:#888;">{{ c.submitted_at[:10] }}</p>
+          <p style="font-size:13px;">{{ c.status_update }}</p>
+          {% if c.blockers %}<p style="font-size:12px;color:#c00;"><strong>Blockers:</strong> {{ c.blockers }}</p>{% endif %}
+          {% if c.next_steps %}<p style="font-size:12px;color:#555;"><strong>Next:</strong> {{ c.next_steps }}</p>{% endif %}
+        </div>
+        {% else %}
+        <p class="is-size-7 has-text-grey">No check-ins.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Deliverables -->
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;margin-bottom:8px;">DELIVERABLES ({{ deliverables|length }})</h2>
+        {% for d in deliverables %}
+        <div style="border-bottom:1px solid #eee;padding:8px 0;">
+          <p style="font-size:13px;font-weight:700;">
+            {% if d.url %}
+            <a href="{{ d.url }}" target="_blank" style="color:var(--cdp-blue);">{{ d.title }}</a>
+            {% else %}{{ d.title }}{% endif %}
+          </p>
+          <p style="font-size:12px;color:#888;">Week {{ d.week_number }} | {{ d.submitted_at[:10] }}</p>
+          {% if d.description %}<p style="font-size:12px;color:#555;">{{ d.description }}</p>{% endif %}
+        </div>
+        {% else %}
+        <p class="is-size-7 has-text-grey">No deliverables.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback -->
+  <div class="column is-two-fifths">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;margin-bottom:8px;">MENTOR FEEDBACK ({{ feedback_list|length }})</h2>
+        {% for f in feedback_list %}
+        <div style="border-bottom:1px solid #eee;padding:8px 0;">
+          <p style="font-size:12px;color:#888;">Week {{ f.week_number }} &mdash; Rating: <strong style="color:var(--cdp-salmon);">{{ f.rating }}/5</strong></p>
+          <p style="font-size:12px;color:#777;">By: {{ f.reviewer_email }}</p>
+          <p style="font-size:13px;">{{ f.feedback }}</p>
+        </div>
+        {% else %}
+        <p class="is-size-7 has-text-grey">No feedback yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

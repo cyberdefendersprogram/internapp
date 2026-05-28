@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Email Composer — Admin — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Interns</a>
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">Email Composer</h1>
+<p class="subtitle is-6" style="color:#888;">Send templated emails to interns. All sends are logged.</p>
+
+<div class="columns">
+  <div class="column is-half">
+    <div class="card is-detail">
+      <div class="card-content">
+        <form id="emailForm">
+          <div class="field">
+            <label class="label is-small">Audience</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                <select name="audience" id="audienceSelect">
+                  <option value="all">All Active Interns</option>
+                  <option value="track">By Track</option>
+                  <option value="missing_checkin">Missing Check-In (current week)</option>
+                  <option value="single">Single Intern</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" id="trackField" style="display:none;">
+            <label class="label is-small">Track</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                <select name="track_id">
+                  <option value="">-- Select Track --</option>
+                  {% for t in tracks %}
+                  <option value="{{ t.track_id }}">{{ t.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" id="singleField" style="display:none;">
+            <label class="label is-small">Intern</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                <select name="intern_id_single">
+                  <option value="">-- Select Intern --</option>
+                  {% for i in interns %}
+                  <option value="{{ i.intern_id }}">{{ i.display_name }} ({{ i.preferred_email }})</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label is-small">Template</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                <select name="template_slug" id="templateSelect">
+                  {% for tmpl in email_templates %}
+                  <option value="{{ tmpl }}">{{ tmpl }}</option>
+                  {% endfor %}
+                  <option value="custom">Custom (write below)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="customFields" style="display:none;">
+            <div class="field">
+              <label class="label is-small">Subject</label>
+              <div class="control">
+                <input class="input is-small" type="text" name="custom_subject" placeholder="Email subject">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label is-small">Body (HTML)</label>
+              <div class="control">
+                <textarea class="textarea is-small" name="custom_body" rows="6" placeholder="<p>Hello {{intern_name}},...</p>"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="buttons mt-4">
+            <button type="button" class="button is-light" onclick="previewEmail()">Preview</button>
+            <button type="button" class="button is-primary" onclick="sendEmail()">Send Emails</button>
+          </div>
+        </form>
+
+        <div id="sendResult" style="display:none;margin-top:1rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="column is-half">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;margin-bottom:8px;">EMAIL PREVIEW</h2>
+        <div id="previewContainer" style="border:1px solid #eee;border-radius:4px;padding:1rem;min-height:200px;background:#fff;">
+          <p class="is-size-7 has-text-grey">Click "Preview" to see how your email will look.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const audienceSelect = document.getElementById('audienceSelect');
+  const templateSelect = document.getElementById('templateSelect');
+
+  audienceSelect.addEventListener('change', function() {
+    document.getElementById('trackField').style.display = this.value === 'track' ? 'block' : 'none';
+    document.getElementById('singleField').style.display = this.value === 'single' ? 'block' : 'none';
+  });
+
+  templateSelect.addEventListener('change', function() {
+    document.getElementById('customFields').style.display = this.value === 'custom' ? 'block' : 'none';
+  });
+
+  function getFormData() {
+    const form = document.getElementById('emailForm');
+    const data = new FormData(form);
+    return data;
+  }
+
+  async function previewEmail() {
+    const data = getFormData();
+    const resp = await fetch('/admin/email/preview', { method: 'POST', body: data });
+    const json = await resp.json();
+    document.getElementById('previewContainer').innerHTML = json.preview;
+  }
+
+  async function sendEmail() {
+    if (!confirm('Send emails to selected recipients?')) return;
+    const data = getFormData();
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const resp = await fetch('/admin/email/send', { method: 'POST', body: data });
+    const json = await resp.json();
+
+    btn.disabled = false;
+    btn.textContent = 'Send Emails';
+
+    const div = document.getElementById('sendResult');
+    div.style.display = 'block';
+    div.className = json.failed > 0 ? 'notification is-warning is-light' : 'notification is-success is-light';
+    div.innerHTML = `<strong>Done!</strong> Sent: ${json.sent}, Failed: ${json.failed}, Total: ${json.total}`;
+  }
+</script>
+{% endblock %}

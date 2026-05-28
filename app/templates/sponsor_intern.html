@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Intern Detail — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/sponsor">My Track</a>
+<a class="navbar-item" href="/sponsor/feedback">Submit Feedback</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+{% if feedback_only %}
+<!-- Standalone feedback form -->
+<h1 class="title cdp-heading">Submit Mentor Feedback</h1>
+<div class="card is-detail">
+  <div class="card-content">
+    <form method="post" action="/sponsor/feedback">
+      <div class="field">
+        <label class="label">Intern</label>
+        <div class="control">
+          <div class="select is-fullwidth">
+            <select name="intern_id" required>
+              <option value="">-- Select Intern --</option>
+              {% for i in interns %}
+              <option value="{{ i.intern_id }}">{{ i.display_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Week Number</label>
+        <div class="control">
+          <input class="input" type="number" name="week_number" value="{{ week_number }}" min="1" required>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Rating (1–5)</label>
+        <div class="control">
+          <div class="select">
+            <select name="rating" required>
+              {% for r in [1,2,3,4,5] %}
+              <option value="{{ r }}">{{ r }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Feedback</label>
+        <div class="control">
+          <textarea class="textarea" name="feedback" rows="4" required
+            placeholder="Qualitative notes about this intern's work..."></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <button type="submit" class="button is-primary">Submit Feedback</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% else %}
+<!-- Intern detail view -->
+<div class="level mb-2">
+  <div class="level-left">
+    <h1 class="title cdp-heading" style="margin:0;">
+      {{ intern.display_name }}
+    </h1>
+  </div>
+  <div class="level-right">
+    <a href="/sponsor" class="button is-light is-small">← Back to Track</a>
+  </div>
+</div>
+<p class="subtitle is-6" style="color:#888;">
+  {{ intern.school or '' }}{% if intern.year %} &mdash; {{ intern.year }}{% endif %}
+  | Track ID: {{ intern.track_id }}
+</p>
+
+{% if intern.bio %}
+<div class="notification is-light" style="background:var(--cdp-light);margin-bottom:1.5rem;">
+  <strong>Bio:</strong> {{ intern.bio }}
+</div>
+{% endif %}
+
+<div class="columns">
+  <!-- Check-ins -->
+  <div class="column">
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;letter-spacing:1px;margin-bottom:8px;">CHECK-INS</h2>
+        {% if checkins %}
+        {% for c in checkins %}
+        <div style="border-bottom:1px solid #eee;padding:8px 0;">
+          <p style="font-size:12px;color:#888;">Week {{ c.week_number }} &mdash; {{ c.submitted_at[:10] }}</p>
+          <p style="font-size:13px;color:#333;">{{ c.status_update[:200] }}{% if c.status_update|length > 200 %}…{% endif %}</p>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="is-size-7 has-text-grey">No check-ins yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Deliverables -->
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;letter-spacing:1px;margin-bottom:8px;">DELIVERABLES</h2>
+        {% if deliverables %}
+        {% for d in deliverables %}
+        <div style="border-bottom:1px solid #eee;padding:8px 0;">
+          <p style="font-size:13px;font-weight:700;color:var(--cdp-navy);">
+            {% if d.url %}
+            <a href="{{ d.url }}" target="_blank" style="color:var(--cdp-blue);">{{ d.title }}</a>
+            {% else %}
+            {{ d.title }}
+            {% endif %}
+          </p>
+          <p style="font-size:12px;color:#888;">Week {{ d.week_number }}</p>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="is-size-7 has-text-grey">No deliverables yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback -->
+  <div class="column is-two-fifths">
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;letter-spacing:1px;margin-bottom:8px;">SUBMIT FEEDBACK</h2>
+        <form method="post" action="/sponsor/feedback">
+          <input type="hidden" name="intern_id" value="{{ intern.intern_id }}">
+          <div class="field">
+            <label class="label is-small">Week</label>
+            <div class="control">
+              <input class="input is-small" type="number" name="week_number" value="{{ week_number }}" min="1" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Rating (1–5)</label>
+            <div class="control">
+              <div class="select is-small">
+                <select name="rating" required>
+                  {% for r in [5,4,3,2,1] %}
+                  <option value="{{ r }}">{{ r }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Feedback</label>
+            <div class="control">
+              <textarea class="textarea is-small" name="feedback" rows="3" required></textarea>
+            </div>
+          </div>
+          <button type="submit" class="button is-primary is-small">Submit</button>
+        </form>
+      </div>
+    </div>
+
+    {% if feedback_list %}
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;letter-spacing:1px;margin-bottom:8px;">PAST FEEDBACK</h2>
+        {% for f in feedback_list %}
+        <div style="border-bottom:1px solid #eee;padding:8px 0;">
+          <p style="font-size:12px;color:#888;">Week {{ f.week_number }} &mdash; Rating: <strong>{{ f.rating }}/5</strong></p>
+          <p style="font-size:13px;color:#333;">{{ f.feedback }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

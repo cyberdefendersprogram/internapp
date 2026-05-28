@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Profile — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/home">Home</a>
+<a class="navbar-item" href="/checkin">Check-In</a>
+<a class="navbar-item" href="/deliverables">Deliverables</a>
+<a class="navbar-item" href="/me">Profile</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">Your Profile</h1>
+
+{% if error %}
+<div class="notification is-danger is-light">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="notification is-success is-light">{{ success }}</div>
+{% endif %}
+
+<div class="columns is-centered">
+  <div class="column is-two-thirds">
+    <div class="card is-detail">
+      <div class="card-content">
+        <div class="mb-4">
+          <p class="is-size-7 has-text-grey">
+            Intern ID: <span style="font-family:'Roboto Mono',monospace;">{{ intern.intern_id }}</span>
+            &nbsp;|&nbsp; Email: <strong>{{ intern.preferred_email }}</strong>
+          </p>
+        </div>
+        <form method="post" action="/me">
+          <div class="field">
+            <label class="label">Preferred Name</label>
+            <div class="control">
+              <input class="input" type="text" name="preferred_name"
+                value="{{ intern.preferred_name or '' }}" placeholder="What should we call you?">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">School / College</label>
+            <div class="control">
+              <input class="input" type="text" name="school"
+                value="{{ intern.school or '' }}" placeholder="e.g., UC Berkeley">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">Year</label>
+            <div class="control">
+              <div class="select">
+                <select name="year">
+                  <option value="">-- Select --</option>
+                  {% for opt in ["Freshman", "Sophomore", "Junior", "Senior", "Grad"] %}
+                  <option value="{{ opt }}" {% if intern.year == opt %}selected{% endif %}>{{ opt }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">LinkedIn Profile URL</label>
+            <div class="control">
+              <input class="input" type="url" name="linkedin"
+                value="{{ intern.linkedin or '' }}" placeholder="https://linkedin.com/in/...">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">GitHub Profile URL</label>
+            <div class="control">
+              <input class="input" type="url" name="github"
+                value="{{ intern.github or '' }}" placeholder="https://github.com/...">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">Short Bio</label>
+            <div class="control">
+              <textarea class="textarea" name="bio" rows="3"
+                placeholder="Tell us about yourself in 2-3 sentences.">{{ intern.bio or '' }}</textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <button type="submit" class="button is-primary">Save Profile</button>
+              <a href="/home" class="button is-light ml-2">Cancel</a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/home">Home</a>
+<a class="navbar-item" href="/checkin">Check-In</a>
+<a class="navbar-item" href="/deliverables">Deliverables</a>
+<a class="navbar-item" href="/me">Profile</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading" style="margin-bottom:0.5rem;">
+  Welcome back, {{ intern.display_name }}!
+</h1>
+<p class="subtitle is-6" style="color:#666;margin-bottom:1.5rem;">
+  Program Week {{ week_number }}
+  {% if checked_in_this_week %}
+  &nbsp;<span class="tag is-checkedin">Check-In Done ✓</span>
+  {% else %}
+  &nbsp;<span class="tag is-missing">Check-In Due</span>
+  {% endif %}
+</p>
+
+<div class="columns">
+  <!-- Track Card -->
+  <div class="column is-half">
+    <div class="card is-track mb-4">
+      <div class="card-content">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;">Your Track</p>
+        {% if track %}
+        <h2 class="title is-5 has-text-cdp-navy" style="margin-bottom:4px;">{{ track.name }}</h2>
+        <p class="is-size-7" style="color:#888;">Mentor: <strong>{{ track.employer_sponsor }}</strong></p>
+        <p class="mt-2 is-size-7" style="color:#555;">{{ track.description[:200] }}{% if track.description|length > 200 %}…{% endif %}</p>
+        {% else %}
+        <p class="has-text-grey">Track info loading...</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="card is-detail">
+      <div class="card-content">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;">Quick Actions</p>
+        <div class="buttons mt-2">
+          {% if not checked_in_this_week %}
+          <a href="/checkin" class="button is-primary">Submit Week {{ week_number }} Check-In</a>
+          {% else %}
+          <a href="/checkin" class="button is-light">View Check-In</a>
+          {% endif %}
+          <a href="/deliverables" class="button is-light">Submit Deliverable</a>
+          <a href="/me" class="button is-light">Edit Profile</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deliverables -->
+  <div class="column is-half">
+    <div class="card is-detail">
+      <div class="card-content">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;">
+          Recent Deliverables ({{ deliverable_count }} total)
+        </p>
+        {% if recent_deliverables %}
+        <ul class="mt-2">
+          {% for d in recent_deliverables %}
+          <li style="margin-bottom:8px;">
+            <p class="is-size-7" style="font-weight:700;color:var(--cdp-navy);">
+              {% if d.url %}
+              <a href="{{ d.url }}" target="_blank" rel="noopener" style="color:var(--cdp-blue);">{{ d.title }}</a>
+              {% else %}
+              {{ d.title }}
+              {% endif %}
+            </p>
+            <p class="is-size-7 has-text-grey">Week {{ d.week_number }}</p>
+          </li>
+          {% endfor %}
+        </ul>
+        <a href="/deliverables" class="is-size-7" style="color:var(--cdp-blue);">View all deliverables →</a>
+        {% else %}
+        <p class="is-size-7 has-text-grey mt-2">No deliverables submitted yet.</p>
+        <a href="/deliverables" class="button is-primary is-small mt-3">Submit Your First Deliverable</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

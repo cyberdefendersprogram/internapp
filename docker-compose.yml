@@ -1,0 +1,14 @@
+services:
+  app:
+    image: ghcr.io/vaibhavb/internapp:latest
+    ports:
+      - "8001:8001"
+    env_file:
+      - env/.env
+    volumes:
+      - /var/lib/internapp:/var/lib/internapp
+      - /etc/internapp:/etc/internapp:ro
+    environment:
+      - ENV=production
+      - SQLITE_PATH=/var/lib/internapp/app.db
+    restart: unless-stopped
