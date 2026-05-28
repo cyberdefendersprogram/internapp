@@ -69,7 +69,7 @@ Co-hosted with classapp on the same DigitalOcean droplet. classapp runs on port 
 | SQLite | Magic tokens, rate limits, sessions |
 | Google Sheets | All program data (roster, tracks, check-ins, deliverables, etc.) |
 | GitHub Actions | CI/CD pipeline |
-| SMTP (ForwardEmail) | Magic links + email reminders |
+| ForwardEmail API | Magic links + email reminders (`api.forwardemail.net/v1/emails`) |
 
 ---
 
@@ -82,10 +82,8 @@ Co-hosted with classapp on the same DigitalOcean droplet. classapp runs on port 
 | `SECRET_KEY` | JWT signing key (32+ chars) | `your-secret-key-here` |
 | `GOOGLE_SHEETS_ID` | Spreadsheet ID from URL | `1BxiMVs0XRA5nFMdKvBd...` |
 | `GOOGLE_SERVICE_ACCOUNT_PATH` | Path to service account JSON | `/etc/internapp/sa.json` |
-| `SMTP_HOST` | SMTP server hostname | `smtp.forwardemail.net` |
-| `SMTP_PORT` | SMTP port | `587` |
-| `SMTP_USER` | SMTP username | `noreply@cyberdefendersprogram.com` |
-| `SMTP_PASS` | SMTP password | `password` |
+| `FORWARDEMAIL_USER` | ForwardEmail API username (sending address) | `noreply@cyberdefendersprogram.com` |
+| `FORWARDEMAIL_PASS` | ForwardEmail API key | `your-api-key` |
 | `BASE_URL` | Public URL (no trailing slash) | `https://intern.cyberdefendersprogram.com` |
 | `ADMIN_EMAILS` | Comma-separated admin email list | `vaibhavb@gmail.com` |
 
@@ -470,7 +468,7 @@ Admin → /admin/email
     ├── Confirm send
     │
     ▼
-App iterates recipients, sends via SMTP
+App iterates recipients, sends via ForwardEmail REST API
     │
     ▼
 Each send logged to Email_Log sheet
