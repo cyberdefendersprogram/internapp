@@ -16,8 +16,8 @@ def setup_test_env():
     os.environ["SQLITE_PATH"] = temp_path
     os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only-32ch"
     os.environ["BASE_URL"] = "http://localhost:8001"
-    os.environ["SMTP_USER"] = "test@example.com"
-    os.environ["SMTP_PASS"] = "test-password"
+    os.environ["FORWARDEMAIL_USER"] = "test@example.com"
+    os.environ["FORWARDEMAIL_PASS"] = "test-api-key"
     os.environ["ADMIN_EMAILS"] = "admin@example.com"
 
     yield temp_path
