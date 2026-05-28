@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.sqlite import init_db
-from app.routers import admin, auth, claim, health, intern, onboarding, program, sponsor
+from app.routers import admin, applicants, auth, claim, health, intern, onboarding, program, sponsor
 from app.services.sessions import COOKIE_NAME
 
 # Configure logging
@@ -50,6 +50,7 @@ app.include_router(onboarding.router)
 app.include_router(intern.router)
 app.include_router(sponsor.router)
 app.include_router(admin.router)
+app.include_router(applicants.router)
 app.include_router(program.router)
 
 

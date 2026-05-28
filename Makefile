@@ -28,6 +28,7 @@ help:
 	@echo "  make pre-commit        Run pre-commit hooks on all files"
 	@echo ""
 	@echo "  make seed              Seed Google Sheet structure (all tabs + headers)"
+	@echo "  make migrate-roles     Add 'role' column to Roster, backfill existing rows as 'intern'"
 	@echo "  make provision         Print droplet provisioning instructions"
 	@echo ""
 	@echo "  make deploy            Push to main → CI builds image → server auto-deploys"
@@ -40,6 +41,7 @@ help:
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 dev:
+	@lsof -ti:8001 | xargs kill -9 2>/dev/null || true
 	$(UVICORN) app.main:app --reload --host 0.0.0.0 --port 8001
 
 docker-dev:
@@ -59,8 +61,8 @@ fmt:
 
 # ── Pre-commit ────────────────────────────────────────────────────────────────
 pre-commit-install:
-	$(PYTHON) -m pip install pre-commit
-	pre-commit install
+	uv pip install pre-commit
+	.venv/bin/pre-commit install
 
 pre-commit:
 	pre-commit run --all-files
@@ -69,6 +71,11 @@ pre-commit:
 seed:
 	GOOGLE_SERVICE_ACCOUNT_PATH=.secrets/service-account.json \
 	$(PYTHON) scripts/seed_sheets.py --create-structure
+
+migrate-roles:
+	GOOGLE_SERVICE_ACCOUNT_PATH=.secrets/service-account.json \
+	GOOGLE_SHEETS_ID=$(shell grep ^GOOGLE_SHEETS_ID .env | cut -d= -f2) \
+	$(PYTHON) scripts/migrate_roster_roles.py
 
 # ── Provisioning ──────────────────────────────────────────────────────────────
 provision:

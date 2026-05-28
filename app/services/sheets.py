@@ -8,6 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from app.config import settings
+from app.models.applicant import ApplicantEntry
 from app.models.intern import InternEntry
 from app.models.track import TrackEntry
 from app.services.cache import cached, invalidate
@@ -25,13 +26,13 @@ SCOPES = [
 ]
 
 # Cache TTLs (in seconds) per SPEC section 14
-CACHE_TTL_CONFIG = 300   # 5 minutes
-CACHE_TTL_TRACKS = 600   # 10 minutes
-CACHE_TTL_ROSTER = 120   # 2 minutes
-CACHE_TTL_CHECKINS = 120   # 2 minutes
-CACHE_TTL_DELIVERABLES = 120   # 2 minutes
-CACHE_TTL_ATTENDANCE = 120   # 2 minutes
-CACHE_TTL_FEEDBACK = 120   # 2 minutes
+CACHE_TTL_CONFIG = 300  # 5 minutes
+CACHE_TTL_TRACKS = 600  # 10 minutes
+CACHE_TTL_ROSTER = 120  # 2 minutes
+CACHE_TTL_CHECKINS = 120  # 2 minutes
+CACHE_TTL_DELIVERABLES = 120  # 2 minutes
+CACHE_TTL_ATTENDANCE = 120  # 2 minutes
+CACHE_TTL_FEEDBACK = 120  # 2 minutes
 
 
 class SheetsClient:
@@ -294,7 +295,9 @@ class SheetsClient:
             row = [data.get(h, "") for h in headers]
             worksheet.append_row(row, value_input_option="RAW")
             invalidate("checkins")
-            logger.info("Appended check-in: %s week %s", data.get("intern_id"), data.get("week_number"))
+            logger.info(
+                "Appended check-in: %s week %s", data.get("intern_id"), data.get("week_number")
+            )
             return True
         except Exception as e:
             logger.error("Failed to append check-in: %s", e)
@@ -391,7 +394,9 @@ class SheetsClient:
             row = [data.get(h, "") for h in headers]
             worksheet.append_row(row, value_input_option="RAW")
             invalidate("attendance")
-            logger.info("Appended attendance: %s on %s", data.get("intern_id"), data.get("session_date"))
+            logger.info(
+                "Appended attendance: %s on %s", data.get("intern_id"), data.get("session_date")
+            )
             return True
         except Exception as e:
             logger.error("Failed to append attendance: %s", e)
@@ -416,6 +421,175 @@ class SheetsClient:
     # -------------------------------------------------------------------------
     # Magic Link audit methods
     # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
+    # Applicant methods (separate spreadsheet)
+    # -------------------------------------------------------------------------
+
+    def _get_applicant_spreadsheet(self) -> gspread.Spreadsheet:
+        """Open the applicant spreadsheet (different from the intern one)."""
+        if not settings.applicant_sheets_id:
+            raise ValueError("APPLICANT_SHEETS_ID is not configured")
+        client = self._get_client()
+        return client.open_by_key(settings.applicant_sheets_id)
+
+    def _get_applicant_feedback_sheet(self) -> gspread.Worksheet:
+        """Get (or create) the Applicant_Feedback worksheet in the applicant spreadsheet."""
+        spreadsheet = self._get_applicant_spreadsheet()
+        try:
+            return spreadsheet.worksheet("Applicant_Feedback")
+        except gspread.exceptions.WorksheetNotFound:
+            ws = spreadsheet.add_worksheet(title="Applicant_Feedback", rows=1000, cols=10)
+            ws.update(
+                [["applicant_row", "reviewer_email", "reviewer_name", "submitted_at", "feedback"]],
+                range_name="A1",
+            )
+            logger.info("Created Applicant_Feedback tab")
+            return ws
+
+    def get_all_applicants(self) -> list[ApplicantEntry]:
+        """Return all applicant rows (skips header row 1)."""
+        try:
+            sheet = self._get_applicant_spreadsheet().sheet1
+            all_rows = sheet.get_all_values()
+            if len(all_rows) < 2:
+                return []
+            # all_rows[0] is the header; data starts at index 1 (row 2 in sheet)
+            return [
+                ApplicantEntry.from_row(row_index=i + 2, row=row)
+                for i, row in enumerate(all_rows[1:])
+                if any(cell.strip() for cell in row)
+            ]
+        except Exception as e:
+            logger.error("Failed to get applicants: %s", e)
+            return []
+
+    def get_applicant_by_row(self, row_index: int) -> ApplicantEntry | None:
+        """Return the applicant at the given 1-based row index."""
+        try:
+            sheet = self._get_applicant_spreadsheet().sheet1
+            row = sheet.row_values(row_index)
+            return ApplicantEntry.from_row(row_index=row_index, row=row)
+        except Exception as e:
+            logger.error("Failed to get applicant row %s: %s", row_index, e)
+            return None
+
+    def save_decision(self, row_index: int, decision: str) -> bool:
+        """Write the admin decision to column I (9) of the applicant sheet."""
+        try:
+            sheet = self._get_applicant_spreadsheet().sheet1
+            sheet.update_cell(row_index, 9, decision)
+            logger.info("Decision '%s' saved for applicant row %s", decision, row_index)
+            return True
+        except Exception as e:
+            logger.error("Failed to save decision for row %s: %s", row_index, e)
+            return False
+
+    def _next_intern_id(self) -> str:
+        """Generate the next sequential CDP-YYYY-NNN intern_id from the Roster."""
+        try:
+            worksheet = self._get_worksheet("Roster")
+            records = worksheet.get_all_records()
+            max_n = 0
+            for r in records:
+                iid = str(r.get("intern_id", ""))
+                parts = iid.split("-")
+                if len(parts) == 3 and parts[2].isdigit():
+                    max_n = max(max_n, int(parts[2]))
+            year = datetime.utcnow().year
+            return f"CDP-{year}-{max_n + 1:03d}"
+        except Exception as e:
+            logger.error("Failed to generate intern_id: %s", e)
+            import random
+
+            return f"CDP-{datetime.utcnow().year}-{random.randint(900, 999)}"
+
+    def admit_applicant(
+        self,
+        row_index: int,
+        full_name: str,
+        track_id: str,
+        intern_id: str,
+    ) -> bool:
+        """
+        Write a new row to the Roster and stamp Admitted_At (col J) on the applicant sheet.
+        Returns True on success.
+        """
+        try:
+            roster_ws = self._get_worksheet("Roster")
+            headers = roster_ws.row_values(1)
+
+            # Build roster row aligned to current headers
+            data = {
+                "intern_id": intern_id,
+                "full_name": full_name,
+                "track_id": track_id,
+                "role": "intern",
+            }
+            row = [data.get(h, "") for h in headers]
+            roster_ws.append_row(row, value_input_option="RAW")
+            invalidate("roster")
+            invalidate("all_roster")
+
+            # Stamp admitted_at on applicant sheet (col J = 10)
+            app_sheet = self._get_applicant_spreadsheet().sheet1
+            app_sheet.update_cell(row_index, 10, datetime.utcnow().isoformat())
+
+            logger.info("Admitted applicant row %s as %s (%s)", row_index, intern_id, full_name)
+            return True
+        except Exception as e:
+            logger.error("Failed to admit applicant row %s: %s", row_index, e)
+            return False
+
+    def get_applicant_feedback(self, applicant_row: int) -> list[dict]:
+        """Return all feedback entries for one applicant, sorted oldest-first."""
+        try:
+            ws = self._get_applicant_feedback_sheet()
+            records = ws.get_all_records()
+            return [r for r in records if str(r.get("applicant_row")) == str(applicant_row)]
+        except Exception as e:
+            logger.error("Failed to get applicant feedback for row %s: %s", applicant_row, e)
+            return []
+
+    def get_reviewer_feedback(self, applicant_row: int, reviewer_email: str) -> str:
+        """Return this reviewer's existing feedback for an applicant, or empty string."""
+        for entry in self.get_applicant_feedback(applicant_row):
+            if entry.get("reviewer_email", "").lower() == reviewer_email.lower():
+                return str(entry.get("feedback", ""))
+        return ""
+
+    def upsert_applicant_feedback(
+        self, applicant_row: int, reviewer_email: str, reviewer_name: str, feedback: str
+    ) -> bool:
+        """Append a new feedback row (or update existing row for this reviewer)."""
+        try:
+            ws = self._get_applicant_feedback_sheet()
+            records = ws.get_all_records()
+            now = datetime.utcnow().isoformat()
+
+            for idx, record in enumerate(records):
+                if (
+                    str(record.get("applicant_row")) == str(applicant_row)
+                    and record.get("reviewer_email", "").lower() == reviewer_email.lower()
+                ):
+                    row_num = idx + 2  # 1-based + header
+                    ws.update(f"D{row_num}:E{row_num}", [[now, feedback]])
+                    logger.info(
+                        "Updated feedback for applicant row %s by %s", applicant_row, reviewer_email
+                    )
+                    return True
+
+            ws.append_row(
+                [applicant_row, reviewer_email, reviewer_name, now, feedback],
+                value_input_option="RAW",
+            )
+            logger.info(
+                "Appended feedback for applicant row %s by %s", applicant_row, reviewer_email
+            )
+            return True
+        except Exception as e:
+            logger.error("Failed to upsert feedback for row %s: %s", applicant_row, e)
+            return False
 
     def append_magic_link_request(self, data: dict) -> bool:
         """Append a magic link request to audit log (Email_Log sheet)."""

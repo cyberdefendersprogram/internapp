@@ -7,7 +7,6 @@ from typing import Annotated
 from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
 
-from app.config import settings
 from app.db.sqlite import get_cached_intern, set_cached_intern
 from app.models.intern import InternEntry
 from app.services.sessions import COOKIE_NAME, SessionData, verify_session_token
@@ -93,11 +92,23 @@ def require_onboarded(
 def require_admin(
     session: Annotated[SessionData, Depends(require_session)],
 ) -> SessionData:
-    """Require admin access based on ADMIN_EMAILS env var."""
+    """Require admin role."""
     if session.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
+        )
+    return session
+
+
+def require_admin_or_mentor(
+    session: Annotated[SessionData, Depends(require_session)],
+) -> SessionData:
+    """Require admin or mentor role."""
+    if session.role not in ("admin", "mentor"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or mentor access required",
         )
     return session
 
@@ -132,5 +143,6 @@ RequiredSession = Annotated[SessionData, Depends(require_session)]
 CurrentIntern = Annotated[InternEntry, Depends(get_current_intern)]
 OnboardedIntern = Annotated[InternEntry, Depends(require_onboarded)]
 AdminSession = Annotated[SessionData, Depends(require_admin)]
+AdminOrMentorSession = Annotated[SessionData, Depends(require_admin_or_mentor)]
 SponsorSession = Annotated[SessionData, Depends(require_sponsor)]
 InternSession = Annotated[SessionData, Depends(require_intern)]

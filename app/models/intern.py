@@ -11,6 +11,7 @@ class InternEntry:
     intern_id: str
     full_name: str
     track_id: str = ""
+    role: str = "intern"  # intern | mentor | admin
     preferred_email: str | None = None
     preferred_name: str | None = None
     school: str | None = None
@@ -52,10 +53,13 @@ class InternEntry:
     @classmethod
     def from_row(cls, row: dict) -> "InternEntry":
         """Create InternEntry from a sheet row dictionary."""
+        raw_role = str(row.get("role", "")).strip().lower()
+        role = raw_role if raw_role in ("intern", "mentor", "admin") else "intern"
         return cls(
             intern_id=str(row.get("intern_id", "")),
             full_name=row.get("full_name", ""),
             track_id=str(row.get("track_id", "")),
+            role=role,
             preferred_email=row.get("preferred_email") or None,
             preferred_name=row.get("preferred_name") or None,
             school=row.get("school") or None,

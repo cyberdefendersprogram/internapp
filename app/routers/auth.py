@@ -31,6 +31,8 @@ async def signin_page(request: Request):
         if session:
             if session.role == "admin":
                 return RedirectResponse(url="/admin", status_code=302)
+            elif session.role == "mentor":
+                return RedirectResponse(url="/admin/applicants", status_code=302)
             elif session.role == "sponsor":
                 return RedirectResponse(url="/sponsor", status_code=302)
             else:
@@ -128,47 +130,51 @@ async def verify_magic_link(request: Request, token: str, response: Response):
         )
 
     sheets = get_sheets_client()
+    cookie_settings = get_cookie_settings()
 
-    # 1. Check admin
+    def _make_resp(role: str, intern_id: str, redirect_url: str):
+        token = create_session_token(email, intern_id, role)
+        r = RedirectResponse(url=redirect_url, status_code=302)
+        r.set_cookie(value=token, **cookie_settings)
+        return r
+
+    # 1. ADMIN_EMAILS env var — bootstrap escape hatch, always works
     if email in settings.admin_email_list:
-        session_token = create_session_token(email, "", "admin")
-        redirect_url = "/admin"
-        resp = RedirectResponse(url=redirect_url, status_code=302)
-        cookie_settings = get_cookie_settings()
-        resp.set_cookie(value=session_token, **cookie_settings)
-        logger.info("Admin login: %s", email)
-        return resp
+        logger.info("Admin login (env): %s", email)
+        return _make_resp("admin", "", "/admin")
 
-    # 2. Check sponsor (Tracks sheet)
+    # 2. Check Roster for role-tagged entries (admin / mentor / intern)
+    roster_entry = sheets.get_roster_by_email(email)
+    if roster_entry:
+        if roster_entry.role == "admin":
+            sheets.update_roster(
+                roster_entry.intern_id, last_login_at=datetime.utcnow().isoformat()
+            )
+            logger.info("Admin login (roster): %s", email)
+            return _make_resp("admin", roster_entry.intern_id, "/admin")
+
+        if roster_entry.role == "mentor":
+            sheets.update_roster(
+                roster_entry.intern_id, last_login_at=datetime.utcnow().isoformat()
+            )
+            logger.info("Mentor login: %s (track: %s)", email, roster_entry.track_id)
+            return _make_resp("mentor", roster_entry.intern_id, "/admin/applicants")
+
+        if roster_entry.is_claimed:
+            sheets.update_roster(
+                roster_entry.intern_id, last_login_at=datetime.utcnow().isoformat()
+            )
+            redirect_url = "/home" if roster_entry.is_onboarded else "/onboarding"
+            logger.info("Intern login: %s (id: %s)", email, roster_entry.intern_id)
+            return _make_resp("intern", roster_entry.intern_id, redirect_url)
+
+    # 3. Legacy sponsor check via Tracks sheet sponsor_email
     track = sheets.get_track_by_sponsor_email(email)
     if track:
-        session_token = create_session_token(email, "", "sponsor")
-        redirect_url = "/sponsor"
-        resp = RedirectResponse(url=redirect_url, status_code=302)
-        cookie_settings = get_cookie_settings()
-        resp.set_cookie(value=session_token, **cookie_settings)
         logger.info("Sponsor login: %s (track: %s)", email, track.track_id)
-        return resp
+        return _make_resp("sponsor", "", "/sponsor")
 
-    # 3. Check intern (Roster sheet)
-    intern = sheets.get_roster_by_email(email)
-
-    if intern and intern.is_claimed:
-        session_token = create_session_token(email, intern.intern_id, "intern")
-
-        # Update last_login_at
-        sheets.update_roster(intern.intern_id, last_login_at=datetime.utcnow().isoformat())
-
-        redirect_url = "/home" if intern.is_onboarded else "/onboarding"
-
-        resp = RedirectResponse(url=redirect_url, status_code=302)
-        cookie_settings = get_cookie_settings()
-        resp.set_cookie(value=session_token, **cookie_settings)
-
-        logger.info("Intern login: %s (id: %s)", email, intern.intern_id)
-        return resp
-
-    # 4. Email not in any list — send to claim flow
+    # 4. Email not recognised — send to claim flow
     claim_token = create_magic_token(email, ttl_minutes=30)
     logger.info("Email %s not in roster/admin/sponsor — redirecting to claim", email)
     return RedirectResponse(url=f"/claim?token={claim_token}", status_code=302)

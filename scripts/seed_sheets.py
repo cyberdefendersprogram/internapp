@@ -65,7 +65,7 @@ def ensure_headers(ws, headers: list[str]):
         ws.update([headers], range_name="A1")
         print(f"    Set headers: {headers}")
     else:
-        print(f"    Headers already correct.")
+        print("    Headers already correct.")
 
 
 def create_structure(spreadsheet):
@@ -73,35 +73,75 @@ def create_structure(spreadsheet):
 
     tabs = {
         "Roster": [
-            "intern_id", "full_name", "track_id", "preferred_email",
-            "preferred_name", "school", "year", "linkedin", "github", "bio",
-            "claimed_at", "onboarding_completed_at", "last_login_at",
+            "intern_id",
+            "full_name",
+            "track_id",
+            "role",
+            "preferred_email",
+            "preferred_name",
+            "school",
+            "year",
+            "linkedin",
+            "github",
+            "bio",
+            "claimed_at",
+            "onboarding_completed_at",
+            "last_login_at",
         ],
         "Tracks": [
-            "track_id", "name", "description", "employer_sponsor",
-            "sponsor_email", "status",
+            "track_id",
+            "name",
+            "description",
+            "employer_sponsor",
+            "sponsor_email",
+            "status",
         ],
         "Check_ins": [
-            "submitted_at", "intern_id", "email", "week_number",
-            "status_update", "blockers", "next_steps",
+            "submitted_at",
+            "intern_id",
+            "email",
+            "week_number",
+            "status_update",
+            "blockers",
+            "next_steps",
         ],
         "Deliverables": [
-            "submitted_at", "intern_id", "track_id", "week_number",
-            "title", "url", "description",
+            "submitted_at",
+            "intern_id",
+            "track_id",
+            "week_number",
+            "title",
+            "url",
+            "description",
         ],
         "Attendance": [
-            "session_date", "session_type", "intern_id", "present", "notes",
+            "session_date",
+            "session_type",
+            "intern_id",
+            "present",
+            "notes",
         ],
         "Mentor_Feedback": [
-            "submitted_at", "intern_id", "week_number", "reviewer_email",
-            "rating", "feedback",
+            "submitted_at",
+            "intern_id",
+            "week_number",
+            "reviewer_email",
+            "rating",
+            "feedback",
         ],
         "Email_Log": [
-            "sent_at", "sender_email", "recipient_email", "recipient_name",
-            "subject", "template", "status", "note",
+            "sent_at",
+            "sender_email",
+            "recipient_email",
+            "recipient_name",
+            "subject",
+            "template",
+            "status",
+            "note",
         ],
         "Config": [
-            "key", "value",
+            "key",
+            "value",
         ],
     }
 
@@ -138,11 +178,46 @@ def create_structure(spreadsheet):
     if not existing_tracks:
         print("\n[Tracks] Adding sample tracks...")
         sample_tracks = [
-            ["track-1", "Threat Intelligence", "Research and analyze threat actors and TTPs.", "Jane Mentor", "jane@company.com", "active"],
-            ["track-2", "Cloud Security", "Secure cloud infrastructure and review IAM policies.", "John Mentor", "john@company.com", "active"],
-            ["track-3", "Vulnerability Research", "Find and document security vulnerabilities.", "Alice Mentor", "alice@company.com", "active"],
-            ["track-4", "Incident Response", "Detect, analyze, and respond to security incidents.", "Bob Mentor", "bob@company.com", "active"],
-            ["track-5", "Security Engineering", "Build security tooling and automation.", "Carol Mentor", "carol@company.com", "active"],
+            [
+                "track-1",
+                "Threat Intelligence",
+                "Research and analyze threat actors and TTPs.",
+                "Jane Mentor",
+                "jane@company.com",
+                "active",
+            ],
+            [
+                "track-2",
+                "Cloud Security",
+                "Secure cloud infrastructure and review IAM policies.",
+                "John Mentor",
+                "john@company.com",
+                "active",
+            ],
+            [
+                "track-3",
+                "Vulnerability Research",
+                "Find and document security vulnerabilities.",
+                "Alice Mentor",
+                "alice@company.com",
+                "active",
+            ],
+            [
+                "track-4",
+                "Incident Response",
+                "Detect, analyze, and respond to security incidents.",
+                "Bob Mentor",
+                "bob@company.com",
+                "active",
+            ],
+            [
+                "track-5",
+                "Security Engineering",
+                "Build security tooling and automation.",
+                "Carol Mentor",
+                "carol@company.com",
+                "active",
+            ],
         ]
         tracks_ws.append_rows(sample_tracks, value_input_option="RAW")
 
@@ -151,12 +226,88 @@ def create_structure(spreadsheet):
     existing_roster = roster_ws.get_all_records()
     if not existing_roster:
         print("\n[Roster] Adding sample interns...")
+        # intern_id, full_name, track_id, role, preferred_email, preferred_name, school, year, linkedin, github, bio, claimed_at, onboarding_completed_at, last_login_at
         sample_roster = [
-            ["CDP-2026-001", "Doe, Jane", "track-1", "", "", "", "", "", "", "", "", "", ""],
-            ["CDP-2026-002", "Smith, Alex", "track-1", "", "", "", "", "", "", "", "", "", ""],
-            ["CDP-2026-003", "Johnson, Sam", "track-2", "", "", "", "", "", "", "", "", "", ""],
-            ["CDP-2026-004", "Williams, Taylor", "track-2", "", "", "", "", "", "", "", "", "", ""],
-            ["CDP-2026-005", "Brown, Jordan", "track-3", "", "", "", "", "", "", "", "", "", ""],
+            [
+                "CDP-2026-001",
+                "Doe, Jane",
+                "track-1",
+                "intern",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            [
+                "CDP-2026-002",
+                "Smith, Alex",
+                "track-1",
+                "intern",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            [
+                "CDP-2026-003",
+                "Johnson, Sam",
+                "track-2",
+                "intern",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            [
+                "CDP-2026-004",
+                "Williams, Taylor",
+                "track-2",
+                "intern",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            [
+                "CDP-2026-005",
+                "Brown, Jordan",
+                "track-3",
+                "intern",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
         ]
         roster_ws.append_rows(sample_roster, value_input_option="RAW")
 
@@ -165,8 +316,11 @@ def create_structure(spreadsheet):
 
 def main():
     parser = argparse.ArgumentParser(description="Seed internapp Google Sheets")
-    parser.add_argument("--create-structure", action="store_true",
-                        help="Create all tabs with headers and sample data")
+    parser.add_argument(
+        "--create-structure",
+        action="store_true",
+        help="Create all tabs with headers and sample data",
+    )
     args = parser.parse_args()
 
     if not args.create_structure:

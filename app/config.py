@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Google Sheets
     google_sheets_id: str = ""
+    applicant_sheets_id: str = ""
     google_service_account_path: str = "/etc/internapp/service-account.json"
 
     # Forward Email API (preferred)

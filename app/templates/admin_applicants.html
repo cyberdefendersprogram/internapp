@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Applicants — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Interns</a>
+<a class="navbar-item is-active" href="/admin/applicants">Applicants</a>
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/program">Public View</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div class="level">
+  <div class="level-left">
+    <h1 class="title cdp-heading">Applicants</h1>
+  </div>
+  <div class="level-right">
+    <span class="tag is-light" style="font-size:.9rem;">{{ applicants|length }} applicants</span>
+  </div>
+</div>
+
+{% if not applicants %}
+<div class="notification is-warning is-light">
+  No applicants found. Make sure the sheet ID is correct and the service account has access.
+</div>
+{% else %}
+<div class="card is-detail">
+  <div class="card-content" style="overflow-x:auto;">
+    <table class="table is-fullwidth is-striped is-hoverable is-size-7">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Track Interest</th>
+          <th>Hours/Week</th>
+          <th>LinkedIn</th>
+          <th>Decision</th>
+          <th>Reviews</th>
+          <th>Interview</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applicants %}
+        <tr>
+          <td style="color:#aaa;font-family:'Roboto Mono',monospace;">{{ app.row_index }}</td>
+          <td style="font-weight:700;color:var(--cdp-navy);">{{ app.display_name }}</td>
+          <td>{{ app.track_interest[:60] }}{% if app.track_interest|length > 60 %}…{% endif %}</td>
+          <td>{{ app.hours_availability }}</td>
+          <td>
+            {% if app.linkedin %}
+            <a href="{{ app.linkedin }}" target="_blank" rel="noopener" style="color:var(--cdp-blue);">LinkedIn</a>
+            {% else %}
+            <span class="has-text-grey">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if app.is_admitted %}
+            <span class="tag is-success">Admitted</span>
+            {% elif app.decision == "Accept" %}
+            <span class="tag is-success is-light">Accept</span>
+            {% elif app.decision == "Waitlist" %}
+            <span class="tag is-warning is-light">Waitlist</span>
+            {% elif app.decision == "Decline" %}
+            <span class="tag is-danger is-light">Decline</span>
+            {% else %}
+            <span class="has-text-grey is-size-7">Pending</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;">
+            {% set count = feedback_counts.get(app.row_index, 0) %}
+            {% if count %}
+            <span class="tag is-info is-light">{{ count }}</span>
+            {% else %}
+            <span class="has-text-grey">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="/admin/applicants/{{ app.row_index }}" class="button is-small" style="background:var(--cdp-navy);color:#fff;">
+              Interview
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

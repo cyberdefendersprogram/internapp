@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Interview: {{ applicant.display_name }} — CDP{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Interns</a>
+<a class="navbar-item" href="/admin/applicants">Applicants</a>
+{% if session.role == "admin" %}
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+{% endif %}
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/admin/applicants" style="color:var(--cdp-blue);">← Back to applicants</a>
+</div>
+
+{# ── Flash messages ─────────────────────────────────────────────────────── #}
+{% if flash == "saved" %}
+<div class="notification is-success is-light mb-4">Feedback saved.</div>
+{% elif flash == "admitted" %}
+<div class="notification is-success mb-4">
+  <strong>{{ applicant.display_name }}</strong> has been admitted and added to the Roster.
+</div>
+{% elif flash == "admitted_emailed" %}
+<div class="notification is-success mb-4">
+  <strong>{{ applicant.display_name }}</strong> admitted and welcome email sent to {{ applicant.email }}.
+</div>
+{% elif flash == "admitted_email_failed" %}
+<div class="notification is-warning mb-4">
+  Admitted successfully, but the welcome email failed to send. You can send it manually from the Email page.
+</div>
+{% elif flash == "already_admitted" %}
+<div class="notification is-warning is-light mb-4">This applicant has already been admitted.</div>
+{% elif flash == "admit_error" %}
+<div class="notification is-danger is-light mb-4">Admission failed — check logs.</div>
+{% endif %}
+
+<div class="level">
+  <div class="level-left">
+    <div>
+      <h1 class="title cdp-heading mb-1">{{ applicant.display_name }}</h1>
+      <div class="tags">
+        {% if applicant.is_admitted %}
+        <span class="tag is-success">Admitted</span>
+        {% else %}
+        <span class="tag
+          {% if applicant.decision == 'Accept' %}is-success is-light
+          {% elif applicant.decision == 'Waitlist' %}is-warning is-light
+          {% elif applicant.decision == 'Decline' %}is-danger is-light
+          {% else %}is-light{% endif %}">
+          {{ applicant.decision }}
+        </span>
+        {% endif %}
+        {% if feedback_count %}
+        <span class="tag is-info is-light">{{ feedback_count }} review{{ 's' if feedback_count != 1 }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="level-right">
+    {% if applicant.linkedin %}
+    <a href="{{ applicant.linkedin }}" target="_blank" rel="noopener"
+       class="button is-small is-link is-light">LinkedIn ↗</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="columns is-desktop">
+
+  {# ── Left: application + prompts + other reviewers ───────────────────── #}
+  <div class="column is-7">
+
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <p class="heading" style="color:var(--cdp-blue);font-weight:700;margin-bottom:.25rem;">Technical Project</p>
+        <p class="mb-4" style="white-space:pre-wrap;">{{ applicant.technical_project or "—" }}</p>
+
+        <p class="heading" style="color:var(--cdp-blue);font-weight:700;margin-bottom:.25rem;">Time Commitment</p>
+        <p class="mb-4">{{ applicant.hours_availability or "—" }}</p>
+
+        <p class="heading" style="color:var(--cdp-blue);font-weight:700;margin-bottom:.25rem;">Track Interest</p>
+        <p class="mb-4" style="white-space:pre-wrap;">{{ applicant.track_interest or "—" }}</p>
+
+        {% if applicant.notes %}
+        <p class="heading" style="color:var(--cdp-blue);font-weight:700;margin-bottom:.25rem;">Application Notes</p>
+        <p style="white-space:pre-wrap;">{{ applicant.notes }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <p class="heading" style="color:var(--cdp-navy);font-weight:700;margin-bottom:.5rem;">Suggested Questions</p>
+        <ul style="list-style:disc;padding-left:1.25rem;line-height:1.8;">
+          <li>Walk me through your technical project — what was the hardest part?</li>
+          <li>What drew you to <em>{{ applicant.track_interest[:60] if applicant.track_interest else "this track" }}</em>?</li>
+          <li>Describe a time you had to learn something quickly under pressure.</li>
+          <li>How do you plan to manage {{ applicant.hours_availability or "your time" }} alongside other commitments?</li>
+          <li>What do you want to say you accomplished at the end of the summer?</li>
+          <li>How do you handle ambiguity when given a project with no clear path?</li>
+        </ul>
+      </div>
+    </div>
+
+    {% if others_feedback %}
+    <div class="card is-detail">
+      <div class="card-content">
+        <p class="heading" style="color:var(--cdp-navy);font-weight:700;margin-bottom:.75rem;">
+          Other Reviewers ({{ others_feedback|length }})
+        </p>
+        {% for entry in others_feedback %}
+        <div class="mb-4" style="border-left:3px solid var(--cdp-blue);padding-left:.75rem;">
+          <p class="is-size-7 has-text-grey mb-1">
+            <strong style="color:var(--cdp-navy);">{{ entry.reviewer_name or entry.reviewer_email }}</strong>
+            &nbsp;·&nbsp; {{ entry.submitted_at[:10] if entry.submitted_at else "" }}
+          </p>
+          <p style="white-space:pre-wrap;font-size:.9rem;">{{ entry.feedback }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# ── Right: feedback form + admit panel ──────────────────────────────── #}
+  <div class="column is-5">
+
+    {# Feedback + decision form #}
+    <div class="card is-detail mb-4" style="position:sticky;top:1rem;">
+      <div class="card-content">
+        <p class="heading" style="color:var(--cdp-navy);font-weight:700;font-size:1rem;margin-bottom:.25rem;">
+          Your Feedback
+        </p>
+        <p class="is-size-7 has-text-grey mb-3">{{ session.email }}</p>
+
+        <form method="post" action="/admin/applicants/{{ applicant.row_index }}/feedback">
+          <div class="field">
+            <div class="control">
+              <textarea
+                name="feedback"
+                class="textarea"
+                rows="10"
+                placeholder="Strengths, concerns, notes…"
+                style="font-family:'Roboto Mono',monospace;font-size:.85rem;"
+              >{{ my_feedback }}</textarea>
+            </div>
+          </div>
+
+          {% if session.role == "admin" %}
+          <div class="field">
+            <label class="label is-small">Decision</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                <select name="decision">
+                  {% for d in ["Pending", "Accept", "Waitlist", "Decline"] %}
+                  <option value="{{ d }}" {% if applicant.decision == d %}selected{% endif %}>{{ d }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="field">
+            <div class="control">
+              <button type="submit" class="button is-fullwidth"
+                style="background:var(--cdp-navy);color:#fff;font-weight:700;">
+                Save Feedback{% if session.role == "admin" %} &amp; Decision{% endif %}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# Admit to Program — admin only, Accept decision, not yet admitted #}
+    {% if session.role == "admin" and applicant.decision == "Accept" and not applicant.is_admitted %}
+    <div class="card" style="border:2px solid #23d160;">
+      <div class="card-content">
+        <p class="heading" style="color:#23d160;font-weight:700;font-size:1rem;margin-bottom:.75rem;">
+          Admit to Program
+        </p>
+        <form method="post" action="/admin/applicants/{{ applicant.row_index }}/admit">
+
+          <div class="field">
+            <label class="label is-small">Intern ID (auto-generated)</label>
+            <div class="control">
+              <input class="input is-small" type="text" name="intern_id"
+                value="{{ next_intern_id }}"
+                style="font-family:'Roboto Mono',monospace;">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label is-small">Assign Track</label>
+            <div class="control">
+              <div class="select is-fullwidth is-small">
+                <select name="track_id" required>
+                  <option value="">— pick a track —</option>
+                  {% for track in tracks %}
+                  <option value="{{ track.track_id }}">{{ track.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <p class="help">Applicant expressed interest in: <em>{{ applicant.track_interest[:80] }}</em></p>
+          </div>
+
+          <div class="field">
+            <label class="checkbox">
+              <input type="checkbox" name="send_welcome" value="1" checked>
+              Send welcome email to <strong>{{ applicant.email or "(no email on file)" }}</strong>
+            </label>
+          </div>
+
+          <div class="field">
+            <div class="control">
+              <button type="submit" class="button is-success is-fullwidth"
+                style="font-weight:700;"
+                {% if not applicant.email %}title="No email address — welcome email will be skipped"{% endif %}>
+                Admit {{ applicant.display_name }} →
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% elif session.role == "admin" and applicant.is_admitted %}
+    <div class="notification is-success is-light">
+      Admitted {{ applicant.admitted_at[:10] if applicant.admitted_at else "" }}.
+      <a href="/admin" style="color:var(--cdp-navy);">View in Roster →</a>
+    </div>
+    {% elif session.role == "admin" and applicant.decision != "Accept" %}
+    <p class="is-size-7 has-text-grey" style="text-align:center;padding:.5rem 0;">
+      Set decision to <strong>Accept</strong> to unlock admission.
+    </p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

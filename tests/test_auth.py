@@ -145,6 +145,7 @@ class TestVerifyMagicLink:
             name="Test Track",
             sponsor_email="sponsor@track1.com",
         )
+        mock_sheets.return_value.get_roster_by_email.return_value = None
         mock_sheets.return_value.get_track_by_sponsor_email.return_value = mock_track
 
         response = client.get(f"/auth/verify?token={token}", follow_redirects=False)
