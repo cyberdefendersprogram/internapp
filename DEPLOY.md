@@ -51,6 +51,8 @@ BASE_URL=https://intern.cyberdefendersprogram.com
 ENV=production
 SQLITE_PATH=/var/lib/internapp/app.db
 GOOGLE_SERVICE_ACCOUNT_PATH=/etc/internapp/service-account.json
+FORWARDEMAIL_USER=noreply@cyberdefendersprogram.com
+FORWARDEMAIL_PASS=your-forwardemail-api-key
 ```
 
 ---
