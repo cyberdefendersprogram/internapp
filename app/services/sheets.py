@@ -447,6 +447,7 @@ class SheetsClient:
             logger.info("Created Applicant_Feedback tab")
             return ws
 
+    @cached(ttl_seconds=120, prefix="applicants")
     def get_all_applicants(self) -> list[ApplicantEntry]:
         """Return all applicant rows (skips header row 1).
         Raises SheetsUnavailableError on quota/API errors."""
@@ -467,6 +468,7 @@ class SheetsClient:
             logger.error("Failed to get applicants: %s", e)
             return []
 
+    @cached(ttl_seconds=120, prefix="applicant_row")
     def get_applicant_by_row(self, row_index: int) -> ApplicantEntry | None:
         """Return the applicant at the given 1-based row index.
         Raises SheetsUnavailableError on API/quota errors so callers can return 503."""
@@ -488,6 +490,8 @@ class SheetsClient:
         try:
             sheet = self._get_applicant_spreadsheet().sheet1
             sheet.update_cell(row_index, 9, decision)
+            invalidate("applicant_row")
+            invalidate("applicants")
             logger.info("Decision '%s' saved for applicant row %s", decision, row_index)
             return True
         except Exception as e:
@@ -543,6 +547,8 @@ class SheetsClient:
             # Stamp admitted_at on applicant sheet (col J = 10)
             app_sheet = self._get_applicant_spreadsheet().sheet1
             app_sheet.update_cell(row_index, 10, datetime.utcnow().isoformat())
+            invalidate("applicant_row")
+            invalidate("applicants")
 
             logger.info("Admitted applicant row %s as %s (%s)", row_index, intern_id, full_name)
             return True
@@ -550,6 +556,7 @@ class SheetsClient:
             logger.error("Failed to admit applicant row %s: %s", row_index, e)
             return False
 
+    @cached(ttl_seconds=60, prefix="applicant_feedback")
     def get_applicant_feedback(self, applicant_row: int) -> list[dict]:
         """Return all feedback entries for one applicant, sorted oldest-first."""
         try:
@@ -595,6 +602,7 @@ class SheetsClient:
             logger.info(
                 "Appended feedback for applicant row %s by %s", applicant_row, reviewer_email
             )
+            invalidate("applicant_feedback")
             return True
         except Exception as e:
             logger.error("Failed to upsert feedback for row %s: %s", applicant_row, e)
