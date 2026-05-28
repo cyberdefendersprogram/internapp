@@ -8,4 +8,8 @@ I want to make an intern app which is similar to classapp in the location
   The student data model will be similar as roster and overtime we will add information for each
   of the tracks. The tracks are details in intern.html with a employer sponsor and their email --
   however this will change so we can fetch the tracks from google spreadsheet. Now work on
-  clarifying the requirements before we build it
+  clarifying the requirements before we build it.
+
+  Email is sent via the ForwardEmail REST API (https://api.forwardemail.net/v1/emails).
+  Credentials are set via FORWARDEMAIL_USER (sending address) and FORWARDEMAIL_PASS (API key)
+  environment variables. SMTP is not used.
