@@ -7,7 +7,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.dependencies import RequiredSession, templates
-from app.services.email import send_magic_link_email
+from app.services.email import send_email
 from app.services.sheets import get_sheets_client
 
 logger = logging.getLogger(__name__)
@@ -146,37 +146,31 @@ async def onboarding_submit(
         )
 
     # Send welcome email (best-effort)
-    try:
-        name = form_data.get("preferred_name") or intern.display_name
-        from app.config import settings  # noqa: PLC0415
+    if session.email:
+        try:
+            from app.config import settings  # noqa: PLC0415
 
-        welcome_link = f"{settings.base_url}/home"
-        await send_magic_link_email.__wrapped__ if hasattr(
-            send_magic_link_email, "__wrapped__"
-        ) else None
-        # Send a simple welcome notification
-        from app.services.email import _send_smtp  # noqa: PLC0415
-
-        welcome_html = f"""
-        <html><body style="font-family:Lato,system-ui,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-        <div style="background:#062F49;padding:20px;border-radius:8px 8px 0 0;">
-          <h1 style="color:#fff;font-family:'Roboto Mono',monospace;margin:0;">Welcome to CDP, {name}!</h1>
-        </div>
-        <div style="background:#fff;padding:24px;border:1px solid #eee;border-radius:0 0 8px 8px;">
-          <p>You've successfully completed onboarding for the Cyber Defenders Program internship.</p>
-          <p>You can now access your intern dashboard to submit check-ins, deliverables, and update your profile.</p>
-          <p style="text-align:center;margin:32px 0;">
-            <a href="{welcome_link}" style="background:#FA7C91;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:700;">
-              Go to Dashboard
-            </a>
-          </p>
-        </div>
-        </body></html>
-        """
-        if session.email:
-            _send_smtp(session.email, "Welcome to the Cyber Defenders Program!", welcome_html)
-    except Exception as e:
-        logger.warning("Failed to send welcome email: %s", e)
+            name = form_data.get("preferred_name") or intern.display_name
+            welcome_link = f"{settings.base_url}/home"
+            welcome_html = f"""
+            <html><body style="font-family:Lato,system-ui,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:#062F49;padding:20px;border-radius:8px 8px 0 0;">
+              <h1 style="color:#fff;font-family:'Roboto Mono',monospace;margin:0;">Welcome to CDP, {name}!</h1>
+            </div>
+            <div style="background:#fff;padding:24px;border:1px solid #eee;border-radius:0 0 8px 8px;">
+              <p>You've successfully completed onboarding for the Cyber Defenders Program internship.</p>
+              <p>You can now access your intern dashboard to submit check-ins, deliverables, and update your profile.</p>
+              <p style="text-align:center;margin:32px 0;">
+                <a href="{welcome_link}" style="background:#FA7C91;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:700;">
+                  Go to Dashboard
+                </a>
+              </p>
+            </div>
+            </body></html>
+            """
+            await send_email(session.email, "Welcome to the Cyber Defenders Program!", welcome_html)
+        except Exception as e:
+            logger.warning("Failed to send welcome email: %s", e)
 
     logger.info("Onboarding completed for intern %s", session.intern_id)
     return RedirectResponse(url="/home", status_code=302)
