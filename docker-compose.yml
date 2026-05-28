@@ -1,14 +1,36 @@
+# Production docker-compose — used on the DigitalOcean droplet
+# Managed by GitHub Actions; do not edit manually on the server.
+#
+# Usage on droplet:
+#   cd /opt/internapp && docker compose pull && docker compose up -d
+
 services:
   app:
-    image: ghcr.io/vaibhavb/internapp:latest
+    image: ghcr.io/cyberdefendersprogram/internapp:latest
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     env_file:
-      - env/.env
+      - ./env/.env
     volumes:
       - /var/lib/internapp:/var/lib/internapp
       - /etc/internapp:/etc/internapp:ro
     environment:
-      - ENV=production
       - SQLITE_PATH=/var/lib/internapp/app.db
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M

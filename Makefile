@@ -12,25 +12,30 @@ RUFF        := .venv/bin/ruff
 SSH_CMD     := sshpass -p '$(VM_PASSWORD)' ssh -o StrictHostKeyChecking=no root@$(VM_IP)
 
 .PHONY: help dev docker-dev test lint fmt seed \
+        pre-commit-install pre-commit provision \
         deploy logs ssh health restart db-reset
 
 # ── Default ───────────────────────────────────────────────────────────────────
 help:
 	@echo ""
-	@echo "  make dev          Run app locally with hot-reload (port 8001)"
-	@echo "  make docker-dev   Run app locally in Docker"
+	@echo "  make dev               Run app locally with hot-reload (port 8001)"
+	@echo "  make docker-dev        Run app locally in Docker"
 	@echo ""
-	@echo "  make test         Run test suite"
-	@echo "  make lint         Check code style (ruff)"
-	@echo "  make fmt          Auto-format code (ruff)"
+	@echo "  make test              Run test suite"
+	@echo "  make lint              Check code style (ruff)"
+	@echo "  make fmt               Auto-format code (ruff)"
+	@echo "  make pre-commit-install Install pre-commit hooks"
+	@echo "  make pre-commit        Run pre-commit hooks on all files"
 	@echo ""
-	@echo "  make deploy       Push to main → CI builds image → server auto-deploys"
-	@echo "  make logs         Tail live server logs"
-	@echo "  make ssh          Open shell on server"
-	@echo "  make health       Check server health endpoint"
-	@echo "  make restart      Restart containers on server"
-	@echo "  make db-reset     Wipe SQLite on server (resets sessions/cache)"
-	@echo "  make seed         Seed Google Sheet structure (all tabs + headers)"
+	@echo "  make seed              Seed Google Sheet structure (all tabs + headers)"
+	@echo "  make provision         Print droplet provisioning instructions"
+	@echo ""
+	@echo "  make deploy            Push to main → CI builds image → server auto-deploys"
+	@echo "  make logs              Tail live server logs"
+	@echo "  make ssh               Open shell on server"
+	@echo "  make health            Check server health endpoint"
+	@echo "  make restart           Restart containers on server"
+	@echo "  make db-reset          Wipe SQLite on server (resets sessions/cache)"
 	@echo ""
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
@@ -52,10 +57,27 @@ fmt:
 	$(RUFF) format app/ tests/
 	$(RUFF) check --fix app/ tests/
 
+# ── Pre-commit ────────────────────────────────────────────────────────────────
+pre-commit-install:
+	$(PYTHON) -m pip install pre-commit
+	pre-commit install
+
+pre-commit:
+	pre-commit run --all-files
+
 # ── Seeding ───────────────────────────────────────────────────────────────────
 seed:
 	GOOGLE_SERVICE_ACCOUNT_PATH=.secrets/service-account.json \
 	$(PYTHON) scripts/seed_sheets.py --create-structure
+
+# ── Provisioning ──────────────────────────────────────────────────────────────
+provision:
+	@echo ""
+	@echo "  Run on the droplet (safe alongside classapp):"
+	@echo "  curl -sSL https://raw.githubusercontent.com/cyberdefendersprogram/internapp/main/scripts/provision.sh | bash"
+	@echo ""
+	@echo "  Then see DEPLOY.md for the full checklist."
+	@echo ""
 
 # ── Server ────────────────────────────────────────────────────────────────────
 deploy:
