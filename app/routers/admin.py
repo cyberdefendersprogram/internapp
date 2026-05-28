@@ -46,12 +46,14 @@ async def admin_home(request: Request, session: AdminSession):
                 weekly_status[int(wn)] = True
 
         track = tracks.get(intern.track_id)
-        intern_rows.append({
-            "intern": intern,
-            "track": track,
-            "weekly_status": weekly_status,
-            "deliverable_count": len(sheets.get_deliverables_for_intern(intern.intern_id)),
-        })
+        intern_rows.append(
+            {
+                "intern": intern,
+                "track": track,
+                "weekly_status": weekly_status,
+                "deliverable_count": len(sheets.get_deliverables_for_intern(intern.intern_id)),
+            }
+        )
 
     # Get total weeks from config
     total_weeks = int(sheets.get_config("program_weeks") or 6)
@@ -91,7 +93,9 @@ async def admin_intern_detail(request: Request, intern_id: str, session: AdminSe
             "intern": intern,
             "track": track,
             "checkins": sorted(checkins, key=lambda c: c.get("submitted_at", ""), reverse=True),
-            "deliverables": sorted(deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True),
+            "deliverables": sorted(
+                deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
+            ),
             "feedback_list": feedback_list,
             "week_number": week_number,
         },
@@ -142,7 +146,7 @@ async def attendance_submit(
         "notes": notes.strip(),
     }
 
-    success = sheets.append_attendance(data)
+    sheets.append_attendance(data)
     logger.info("Attendance logged: %s on %s", intern_id, session_date)
 
     return RedirectResponse(url="/admin/attendance?submitted=1", status_code=302)
@@ -243,8 +247,6 @@ async def email_send(
     program_title = config.get("program_title", "Cyber Defenders Program")
 
     all_interns = sheets.get_all_roster()
-    all_checkins_raw = []  # lazy-loaded
-
     # Build recipient list based on audience
     if audience == "all":
         recipients = [i for i in all_interns if i.is_claimed]
@@ -301,16 +303,18 @@ async def email_send(
             except Exception as e:
                 logger.error("Template render error: %s", e)
                 failed += 1
-                sheets.append_email_log({
-                    "sent_at": datetime.utcnow().isoformat(),
-                    "sender_email": session.email,
-                    "recipient_email": intern.preferred_email or "",
-                    "recipient_name": intern.display_name,
-                    "subject": "",
-                    "template": template_slug,
-                    "status": "failed",
-                    "note": str(e),
-                })
+                sheets.append_email_log(
+                    {
+                        "sent_at": datetime.utcnow().isoformat(),
+                        "sender_email": session.email,
+                        "recipient_email": intern.preferred_email or "",
+                        "recipient_name": intern.display_name,
+                        "subject": "",
+                        "template": template_slug,
+                        "status": "failed",
+                        "note": str(e),
+                    }
+                )
                 continue
 
         result = await send_email(intern.preferred_email or "", subject, html_body)

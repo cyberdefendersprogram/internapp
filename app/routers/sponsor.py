@@ -58,11 +58,13 @@ async def sponsor_home(request: Request, session: SponsorSession):
         checkins = sheets.get_checkins_for_intern(intern.intern_id)
         checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
         deliverable_count = len(sheets.get_deliverables_for_intern(intern.intern_id))
-        intern_rows.append({
-            "intern": intern,
-            "checked_in": checked_in,
-            "deliverable_count": deliverable_count,
-        })
+        intern_rows.append(
+            {
+                "intern": intern,
+                "checked_in": checked_in,
+                "deliverable_count": deliverable_count,
+            }
+        )
 
     return templates.TemplateResponse(
         "sponsor.html",
@@ -105,7 +107,9 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
             "intern": intern,
             "track": track,
             "checkins": sorted(checkins, key=lambda c: c.get("submitted_at", ""), reverse=True),
-            "deliverables": sorted(deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True),
+            "deliverables": sorted(
+                deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
+            ),
             "feedback_list": feedback_list,
             "week_number": week_number,
             "error": None,
@@ -166,8 +170,7 @@ async def feedback_submit(
         "feedback": feedback.strip(),
     }
 
-    success = sheets.append_feedback(data)
-
+    sheets.append_feedback(data)
     logger.info("Feedback submitted by %s for intern %s", session.email, intern_id)
 
     # Redirect back to intern detail
