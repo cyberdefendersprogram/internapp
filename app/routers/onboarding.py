@@ -151,7 +151,9 @@ async def onboarding_submit(
         from app.config import settings  # noqa: PLC0415
 
         welcome_link = f"{settings.base_url}/home"
-        await send_magic_link_email.__wrapped__ if hasattr(send_magic_link_email, "__wrapped__") else None
+        await send_magic_link_email.__wrapped__ if hasattr(
+            send_magic_link_email, "__wrapped__"
+        ) else None
         # Send a simple welcome notification
         from app.services.email import _send_smtp  # noqa: PLC0415
 

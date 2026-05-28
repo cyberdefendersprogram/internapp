@@ -44,22 +44,26 @@ async def program_dashboard(request: Request):
             intern_deliverables = [
                 d for d in all_deliverables if str(d.get("intern_id")) == str(intern.intern_id)
             ]
-            intern_entries.append({
-                "name": intern.display_name if intern.is_claimed else "TBD",
-                "deliverables": [
-                    {
-                        "title": d.get("title", ""),
-                        "url": d.get("url", ""),
-                        "week_number": d.get("week_number", ""),
-                    }
-                    for d in intern_deliverables
-                ],
-            })
+            intern_entries.append(
+                {
+                    "name": intern.display_name if intern.is_claimed else "TBD",
+                    "deliverables": [
+                        {
+                            "title": d.get("title", ""),
+                            "url": d.get("url", ""),
+                            "week_number": d.get("week_number", ""),
+                        }
+                        for d in intern_deliverables
+                    ],
+                }
+            )
 
-        track_data.append({
-            "track": track,
-            "interns": intern_entries,
-        })
+        track_data.append(
+            {
+                "track": track,
+                "interns": intern_entries,
+            }
+        )
 
     return templates.TemplateResponse(
         "program.html",

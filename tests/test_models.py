@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from app.models.intern import InternEntry
 from app.models.track import TrackEntry
 

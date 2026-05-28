@@ -7,7 +7,7 @@ from datetime import date, datetime
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app.dependencies import InternSession, OnboardedIntern, RequiredSession, templates
+from app.dependencies import OnboardedIntern, templates
 from app.services.sheets import get_sheets_client
 
 logger = logging.getLogger(__name__)
@@ -39,9 +39,7 @@ async def home(request: Request, intern: OnboardedIntern):
 
     # Check-in status for this week
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
-    checked_in_this_week = any(
-        str(c.get("week_number")) == str(week_number) for c in checkins
-    )
+    checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
 
     # Recent deliverables (last 3)
     deliverables = sheets.get_deliverables_for_intern(intern.intern_id)
@@ -104,9 +102,7 @@ async def checkin_submit(
 
     # Check if already submitted
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
-    already_submitted = any(
-        str(c.get("week_number")) == str(week_number) for c in checkins
-    )
+    already_submitted = any(str(c.get("week_number")) == str(week_number) for c in checkins)
 
     if already_submitted:
         return templates.TemplateResponse(
@@ -164,7 +160,9 @@ async def deliverables_page(request: Request, intern: OnboardedIntern):
         {
             "request": request,
             "intern": intern,
-            "deliverables": sorted(deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True),
+            "deliverables": sorted(
+                deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
+            ),
             "week_number": week_number,
             "error": None,
             "success": None,

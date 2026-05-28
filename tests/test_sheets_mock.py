@@ -1,6 +1,5 @@
 """Tests for sheets service using mocked gspread."""
 
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -97,7 +96,14 @@ class TestGetAllTracks:
         invalidate_all()
         client = SheetsClient()
         mock_worksheet.get_all_records.return_value = [
-            {"track_id": "track-99", "name": "Solo Track", "description": "", "employer_sponsor": "", "sponsor_email": "", "status": "active"},
+            {
+                "track_id": "track-99",
+                "name": "Solo Track",
+                "description": "",
+                "employer_sponsor": "",
+                "sponsor_email": "",
+                "status": "active",
+            },
         ]
 
         with patch.object(client, "_get_worksheet", return_value=mock_worksheet):
@@ -113,7 +119,14 @@ class TestGetAllTracks:
         invalidate_all()
         client = SheetsClient()
         mock_worksheet.get_all_records.return_value = [
-            {"track_id": "t1", "name": "SpTrack", "description": "", "employer_sponsor": "X", "sponsor_email": "sponsor@co.com", "status": "active"},
+            {
+                "track_id": "t1",
+                "name": "SpTrack",
+                "description": "",
+                "employer_sponsor": "X",
+                "sponsor_email": "sponsor@co.com",
+                "status": "active",
+            },
         ]
 
         with patch.object(client, "_get_worksheet", return_value=mock_worksheet):
@@ -206,9 +219,19 @@ class TestClaimIntern:
             }
         ]
         mock_worksheet.row_values.return_value = [
-            "intern_id", "full_name", "track_id", "preferred_email",
-            "preferred_name", "school", "year", "linkedin", "github", "bio",
-            "claimed_at", "onboarding_completed_at", "last_login_at",
+            "intern_id",
+            "full_name",
+            "track_id",
+            "preferred_email",
+            "preferred_name",
+            "school",
+            "year",
+            "linkedin",
+            "github",
+            "bio",
+            "claimed_at",
+            "onboarding_completed_at",
+            "last_login_at",
         ]
 
         with patch.object(sheets_client, "_get_worksheet", return_value=mock_worksheet):
@@ -255,8 +278,13 @@ class TestAppendCheckin:
     def test_append_checkin_success(self, sheets_client, mock_worksheet):
         """Successfully appends a check-in row."""
         mock_worksheet.row_values.return_value = [
-            "submitted_at", "intern_id", "email", "week_number",
-            "status_update", "blockers", "next_steps",
+            "submitted_at",
+            "intern_id",
+            "email",
+            "week_number",
+            "status_update",
+            "blockers",
+            "next_steps",
         ]
 
         data = {
@@ -281,8 +309,13 @@ class TestAppendDeliverable:
     def test_append_deliverable_success(self, sheets_client, mock_worksheet):
         """Successfully appends a deliverable row."""
         mock_worksheet.row_values.return_value = [
-            "submitted_at", "intern_id", "track_id", "week_number",
-            "title", "url", "description",
+            "submitted_at",
+            "intern_id",
+            "track_id",
+            "week_number",
+            "title",
+            "url",
+            "description",
         ]
 
         data = {
