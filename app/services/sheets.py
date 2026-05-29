@@ -557,16 +557,31 @@ class SheetsClient:
             logger.error("Failed to admit applicant row %s: %s", row_index, e)
             return False
 
-    @cached(ttl_seconds=60, prefix="applicant_feedback")
-    def get_applicant_feedback(self, applicant_row: int) -> list[dict]:
-        """Return all feedback entries for one applicant, sorted oldest-first."""
+    @cached(ttl_seconds=120, prefix="all_applicant_feedback")
+    def _get_all_applicant_feedback_raw(self) -> list[dict]:
+        """Fetch entire Applicant_Feedback tab once; cached to prevent N+1 Sheets calls."""
         try:
             ws = self._get_applicant_feedback_sheet()
-            records = ws.get_all_records()
-            return [r for r in records if str(r.get("applicant_row")) == str(applicant_row)]
+            return ws.get_all_records()
         except Exception as e:
-            logger.error("Failed to get applicant feedback for row %s: %s", applicant_row, e)
+            logger.error("Failed to bulk-fetch applicant feedback: %s", e)
             return []
+
+    def get_applicant_feedback(self, applicant_row: int) -> list[dict]:
+        """Return all feedback entries for one applicant."""
+        records = self._get_all_applicant_feedback_raw()
+        return [r for r in records if str(r.get("applicant_row")) == str(applicant_row)]
+
+    def get_all_applicant_feedback_counts(self) -> dict[int, int]:
+        """Return {applicant_row: feedback_count} for all applicants in one API call."""
+        counts: dict[int, int] = {}
+        for r in self._get_all_applicant_feedback_raw():
+            try:
+                row = int(r.get("applicant_row", 0))
+            except (ValueError, TypeError):
+                continue
+            counts[row] = counts.get(row, 0) + 1
+        return counts
 
     def get_reviewer_feedback(self, applicant_row: int, reviewer_email: str) -> str:
         """Return this reviewer's existing feedback for an applicant, or empty string."""
@@ -603,7 +618,7 @@ class SheetsClient:
             logger.info(
                 "Appended feedback for applicant row %s by %s", applicant_row, reviewer_email
             )
-            invalidate("applicant_feedback")
+            invalidate("all_applicant_feedback")
             return True
         except Exception as e:
             logger.error("Failed to upsert feedback for row %s: %s", applicant_row, e)

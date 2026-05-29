@@ -38,9 +38,7 @@ async def applicants_list(request: Request, session: AdminOrMentorSession):
             status_code=503, detail="Sheets temporarily unavailable — please retry in a moment."
         )
 
-    feedback_counts: dict[int, int] = {}
-    for app in applicants:
-        feedback_counts[app.row_index] = len(sheets.get_applicant_feedback(app.row_index))
+    feedback_counts = sheets.get_all_applicant_feedback_counts()
 
     return templates.TemplateResponse(
         "admin_applicants.html",
