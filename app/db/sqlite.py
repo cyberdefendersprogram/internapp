@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS intern_cache (
 );
 """
 
-INTERN_CACHE_TTL_SECONDS = 120  # 2 minutes per SPEC section 14
+INTERN_CACHE_TTL_SECONDS = 900  # 15 minutes — reduces Sheets API call frequency
 
 
 def init_db() -> None:

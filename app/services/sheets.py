@@ -1,6 +1,7 @@
 """Google Sheets client for intern data access."""
 
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -25,14 +26,14 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
 ]
 
-# Cache TTLs (in seconds) per SPEC section 14
-CACHE_TTL_CONFIG = 300  # 5 minutes
-CACHE_TTL_TRACKS = 600  # 10 minutes
-CACHE_TTL_ROSTER = 120  # 2 minutes
-CACHE_TTL_CHECKINS = 120  # 2 minutes
-CACHE_TTL_DELIVERABLES = 120  # 2 minutes
-CACHE_TTL_ATTENDANCE = 120  # 2 minutes
-CACHE_TTL_FEEDBACK = 120  # 2 minutes
+# Cache TTLs (in seconds)
+CACHE_TTL_CONFIG = 600  # 10 minutes
+CACHE_TTL_TRACKS = 900  # 15 minutes
+CACHE_TTL_ROSTER = 600  # 10 minutes
+CACHE_TTL_CHECKINS = 300  # 5 minutes
+CACHE_TTL_DELIVERABLES = 300  # 5 minutes
+CACHE_TTL_ATTENDANCE = 300  # 5 minutes
+CACHE_TTL_FEEDBACK = 300  # 5 minutes
 
 
 class SheetsClient:
@@ -632,13 +633,13 @@ class SheetsClient:
             return False
 
 
-# Singleton instance
-_sheets_client: SheetsClient | None = None
+# Thread-local storage so each thread gets its own gspread session
+# (requests.Session used by gspread is not thread-safe)
+_thread_local = threading.local()
 
 
 def get_sheets_client() -> SheetsClient:
-    """Get the singleton SheetsClient instance."""
-    global _sheets_client
-    if _sheets_client is None:
-        _sheets_client = SheetsClient()
-    return _sheets_client
+    """Get a per-thread SheetsClient instance."""
+    if not hasattr(_thread_local, "client"):
+        _thread_local.client = SheetsClient()
+    return _thread_local.client
