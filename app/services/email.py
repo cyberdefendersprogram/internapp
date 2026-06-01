@@ -2,10 +2,15 @@
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
+from jinja2 import Environment, FileSystemLoader
 
 from app.config import settings
+
+_EMAIL_TEMPLATES_DIR = Path(__file__).parent.parent.parent / "content" / "emails"
+_jinja_env = Environment(loader=FileSystemLoader(str(_EMAIL_TEMPLATES_DIR)))
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +76,8 @@ async def send_email(
 
 
 async def send_magic_link_email(to_email: str, magic_link: str) -> EmailResult:
-    """Send a CDP-branded magic link email."""
+    """Send a sign-in magic link email."""
     subject = "Sign in to Cyber Defenders Program Intern Portal"
-
     html_body = f"""<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -106,7 +110,7 @@ async def send_magic_link_email(to_email: str, magic_link: str) -> EmailResult:
         </td></tr>
         <tr><td style="background:#EFF3F4;padding:16px 32px;text-align:center;">
           <p style="color:#999;font-size:12px;margin:0;">
-            If you didn't request this link, you can safely ignore this email.
+            If you didn't request this, you can safely ignore this email.
           </p>
         </td></tr>
       </table>
@@ -114,15 +118,39 @@ async def send_magic_link_email(to_email: str, magic_link: str) -> EmailResult:
   </table>
 </body>
 </html>"""
-
     text_body = (
         f"Cyber Defenders Program — Intern Portal\n\n"
         f"Click the link below to sign in. This link expires in "
         f"{settings.magic_link_ttl_minutes} minutes and can only be used once.\n\n"
         f"{magic_link}\n\n"
-        f"If you didn't request this link, you can safely ignore this email."
+        f"If you didn't request this, you can safely ignore this email."
     )
+    return await send_email(to_email, subject, html_body, text_body)
 
+
+async def send_discord_link_email(to_email: str, magic_link: str) -> EmailResult:
+    """Send a Discord account-linking email using the discord-link template."""
+    subject = "Connect your Discord to the Cyber Defenders Program Portal"
+    try:
+        tmpl = _jinja_env.get_template("discord-link.html")
+        html_body = tmpl.render(
+            program_title="Cyber Defenders Program",
+            magic_link=magic_link,
+            ttl_minutes=settings.magic_link_ttl_minutes,
+        )
+    except Exception:
+        logger.exception("Failed to render discord-link email template")
+        html_body = f"<p>Click to link your Discord: <a href='{magic_link}'>{magic_link}</a></p>"
+
+    text_body = (
+        f"Cyber Defenders Program — Discord Account Linking\n\n"
+        f"You ran /link in the CDP Discord server.\n\n"
+        f"Click the link below to verify your email and connect your Discord account "
+        f"to your intern profile. This link expires in "
+        f"{settings.magic_link_ttl_minutes} minutes and can only be used once.\n\n"
+        f"{magic_link}\n\n"
+        f"If you didn't run /link in Discord, you can safely ignore this email."
+    )
     return await send_email(to_email, subject, html_body, text_body)
 
 

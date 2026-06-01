@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Lato,system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#062F49;padding:24px 32px;">
+          <p style="margin:0;color:#fff;font-family:'Roboto Mono',monospace;font-size:18px;font-weight:700;">
+            {{ program_title }}
+          </p>
+          <p style="margin:4px 0 0;color:#5893BC;font-size:13px;">Intern Portal — Discord Linking</p>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h2 style="color:#062F49;font-size:20px;margin:0 0 16px;">Connect your Discord account</h2>
+          <p style="color:#555;line-height:1.7;margin:0 0 12px;">
+            You ran <strong>/link</strong> in the <strong>cdpinterns</strong> Discord server.
+          </p>
+          <p style="color:#555;line-height:1.7;margin:0 0 24px;">
+            Click the button below to verify your email and link your Discord account to your
+            intern profile. Once linked, you can use Discord commands to view tasks, submit
+            updates, and get program notifications.
+          </p>
+          <p style="color:#888;font-size:13px;margin:0 0 24px;">
+            This link expires in <strong>{{ ttl_minutes }} minutes</strong> and can only be used once.
+          </p>
+          <div style="margin:24px 0;text-align:center;">
+            <a href="{{ magic_link }}"
+               style="background:#FA7C91;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:700;font-size:16px;display:inline-block;">
+              Link Discord Account
+            </a>
+          </div>
+          <p style="color:#777;font-size:13px;margin:0 0 8px;">Or copy this link into your browser:</p>
+          <p style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:12px;word-break:break-all;color:#333;margin:0;">
+            {{ magic_link }}
+          </p>
+        </td></tr>
+        <tr><td style="background:#EFF3F4;padding:16px 32px;text-align:center;">
+          <p style="color:#999;font-size:12px;margin:0;">
+            If you didn't run /link in Discord, you can safely ignore this email.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

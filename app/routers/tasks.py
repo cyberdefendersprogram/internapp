@@ -9,7 +9,7 @@ from fastapi import APIRouter, Body, HTTPException, Path, Query
 from app.config import settings
 from app.dependencies import AdminOrMentorSession, BotApiKey, RequiredSession
 from app.models.task import TaskEntry
-from app.services.email import send_magic_link_email
+from app.services.email import send_discord_link_email
 from app.services.sheets import get_sheets_client
 from app.services.tokens import create_magic_token
 
@@ -297,7 +297,7 @@ async def bot_discord_link(
     token = create_magic_token(email)
     link_url = f"{settings.base_url}/auth/discord-link?token={token}&discord_id={discord_id}"
 
-    result = await send_magic_link_email(email, link_url)
+    result = await send_discord_link_email(email, link_url)
     if not result.success:
         logger.error("Failed to send discord-link email to %s: %s", email, result.error)
         raise HTTPException(status_code=500, detail="Failed to send linking email")
