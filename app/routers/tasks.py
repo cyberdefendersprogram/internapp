@@ -108,8 +108,8 @@ async def create_task(
 
 @router.patch("/{task_id}")
 async def update_task(
+    session: RequiredSession,
     task_id: str = Path(...),
-    session: RequiredSession = None,
     status: str = Body(...),
     skip_reason: str = Body(""),
 ):
@@ -201,9 +201,9 @@ bot_router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 @bot_router.get("/tasks")
 async def bot_get_tasks(
+    _key: BotApiKey,
     discord_id: str = Query(...),
     week: int | None = Query(None),
-    _key: BotApiKey = None,
 ):
     """Bot: get tasks for a linked Discord user."""
     sheets = get_sheets_client()
@@ -224,6 +224,7 @@ async def bot_get_tasks(
 
 @bot_router.post("/tasks")
 async def bot_create_task(
+    _key: BotApiKey,
     discord_id: str = Body(...),
     title: str = Body(...),
     description: str = Body(""),
@@ -232,7 +233,6 @@ async def bot_create_task(
     due_week: int | None = Body(None),
     priority: str = Body("normal"),
     source: str = Body("discord"),
-    _key: BotApiKey = None,
 ):
     """Bot: create a task (self-task or assignment)."""
     sheets = get_sheets_client()
@@ -273,11 +273,11 @@ async def bot_create_task(
 
 @bot_router.patch("/tasks/{task_id}")
 async def bot_update_task(
+    _key: BotApiKey,
     task_id: str = Path(...),
     discord_id: str = Body(...),
     status: str = Body(...),
     skip_reason: str = Body(""),
-    _key: BotApiKey = None,
 ):
     """Bot: update task status."""
     if status not in ("done", "skipped", "todo"):

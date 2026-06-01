@@ -62,6 +62,8 @@ app.include_router(bot_router)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with appropriate responses."""
     if exc.status_code == 401:
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(status_code=401, content={"detail": exc.detail})
         response = RedirectResponse(url="/", status_code=302)
         response.delete_cookie(COOKIE_NAME)
         logger.info("Redirecting unauthenticated request to login: %s", request.url.path)
