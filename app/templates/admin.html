@@ -2,7 +2,7 @@
 {% block title %}Admin Dashboard — CDP Intern Portal{% endblock %}
 
 {% block nav_links %}
-<a class="navbar-item is-active" href="/admin">Roster</a>
+<a class="navbar-item is-active" href="/admin">Dashboard</a>
 <a class="navbar-item" href="/admin/applicants">Applicants</a>
 <a class="navbar-item" href="/admin/attendance">Attendance</a>
 <a class="navbar-item" href="/admin/email">Send Email</a>
@@ -10,74 +10,230 @@
 <a class="navbar-item" href="/auth/logout">Sign Out</a>
 {% endblock %}
 
+{% block head %}
+<style>
+  .stat-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    text-align: center;
+  }
+  .stat-card .stat-value {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--cdp-navy);
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #888;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+  .stat-card.highlight .stat-value { color: var(--cdp-blue); }
+  .stat-card.good .stat-value { color: #48c78e; }
+
+  .track-section { margin-bottom: 2rem; }
+  .track-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 0.75rem;
+  }
+  .track-pill {
+    background: var(--cdp-salmon);
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .section-label {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--cdp-blue);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--cdp-blue);
+    display: inline-block;
+  }
+  .role-section { margin-top: 2.5rem; }
+  .role-table td, .role-table th { vertical-align: middle !important; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="level">
-  <div class="level-left">
-    <h1 class="title cdp-heading">Roster</h1>
+<!-- Header -->
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px;">
+  <h1 class="title cdp-heading" style="margin:0;">Admin Dashboard</h1>
+  <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">Week {{ week_number }}</span>
+</div>
+
+<!-- Stats row -->
+<div class="columns is-mobile is-multiline mb-5">
+  <div class="column is-3-tablet is-6-mobile">
+    <div class="stat-card highlight">
+      <div class="stat-value">{{ total_interns }}</div>
+      <div class="stat-label">Total Interns</div>
+    </div>
   </div>
-  <div class="level-right">
-    <div class="tags">
-      <span class="tag" style="background:var(--cdp-blue);color:#fff;">{{ total_interns }} Total</span>
-      <span class="tag is-checkedin">{{ claimed_interns }} Claimed</span>
-      <span class="tag is-light">Week {{ week_number }}</span>
+  <div class="column is-3-tablet is-6-mobile">
+    <div class="stat-card good">
+      <div class="stat-value">{{ claimed_interns }}</div>
+      <div class="stat-label">Claimed Accounts</div>
+    </div>
+  </div>
+  <div class="column is-3-tablet is-6-mobile">
+    <div class="stat-card {% if checked_in_this_week == total_interns %}good{% endif %}">
+      <div class="stat-value">{{ checked_in_this_week }}/{{ total_interns }}</div>
+      <div class="stat-label">Week {{ week_number }} Check-Ins</div>
+    </div>
+  </div>
+  <div class="column is-3-tablet is-6-mobile">
+    <div class="stat-card">
+      <div class="stat-value">{{ track_groups|length }}</div>
+      <div class="stat-label">Active Tracks</div>
     </div>
   </div>
 </div>
 
-<div class="card is-detail">
-  <div class="card-content" style="overflow-x:auto;">
-    <table class="table is-fullwidth is-striped is-hoverable is-size-7">
-      <thead>
-        <tr>
-          <th>Intern</th>
-          <th>Track</th>
-          <th>Email</th>
-          <th>Deliverables</th>
-          {% for w in range(1, total_weeks + 1) %}
-          <th style="text-align:center;">W{{ w }}</th>
+<!-- Interns by Track -->
+<div class="section-label">Interns by Track</div>
+
+{% for group in track_groups %}
+<div class="track-section">
+  <div class="track-header">
+    <span class="track-pill">{{ group.track.name if group.track else group.track_id }}</span>
+    <span style="font-size:13px;color:#888;">
+      {% if group.track and group.track.employer_sponsor %}
+        Mentor: <strong>{{ group.track.employer_sponsor }}</strong> &mdash;
+      {% endif %}
+      {{ group.rows|length }} intern{{ 's' if group.rows|length != 1 else '' }}
+    </span>
+  </div>
+
+  <div class="card is-detail">
+    <div class="card-content" style="padding:0;overflow-x:auto;">
+      <table class="table is-fullwidth is-hoverable is-size-7 role-table" style="margin:0;">
+        <thead>
+          <tr style="background:var(--cdp-light);">
+            <th style="padding-left:1rem;">Intern</th>
+            <th>Email</th>
+            <th style="text-align:center;">Deliverables</th>
+            {% for w in range(1, total_weeks + 1) %}
+            <th style="text-align:center;min-width:32px;">W{{ w }}</th>
+            {% endfor %}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in group.rows %}
+          <tr>
+            <td style="padding-left:1rem;">
+              <a href="/admin/intern/{{ row.intern.intern_id }}" style="font-weight:700;color:var(--cdp-navy);">
+                {{ row.intern.display_name }}
+              </a>
+              <br>
+              <span style="color:#bbb;font-family:'Roboto Mono',monospace;font-size:10px;">{{ row.intern.intern_id }}</span>
+            </td>
+            <td>
+              {% if row.intern.preferred_email %}
+              <span style="color:#555;">{{ row.intern.preferred_email }}</span>
+              {% else %}
+              <span class="tag is-warning is-light is-small">Unclaimed</span>
+              {% endif %}
+            </td>
+            <td style="text-align:center;">{{ row.deliverable_count }}</td>
+            {% for w in range(1, total_weeks + 1) %}
+            <td style="text-align:center;">
+              {% if row.weekly_status.get(w) %}
+              <span class="week-dot done" title="Submitted W{{ w }}"></span>
+              {% elif w == week_number %}
+              <span class="week-dot current" title="Current week"></span>
+              {% else %}
+              <span class="week-dot" title="W{{ w }} — not submitted"></span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td>
+              <a href="/admin/intern/{{ row.intern.intern_id }}" class="button is-small is-light">View</a>
+            </td>
+          </tr>
           {% endfor %}
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in intern_rows %}
-        <tr>
-          <td>
-            <a href="/admin/intern/{{ row.intern.intern_id }}" style="font-weight:700;color:var(--cdp-navy);">
-              {{ row.intern.display_name }}
-            </a>
-            <br>
-            <span style="color:#aaa;font-family:'Roboto Mono',monospace;">{{ row.intern.intern_id }}</span>
-          </td>
-          <td>{{ row.track.name if row.track else row.intern.track_id }}</td>
-          <td>
-            {% if row.intern.preferred_email %}
-            <span style="color:#555;">{{ row.intern.preferred_email }}</span>
-            {% else %}
-            <span class="tag is-warning is-light">Unclaimed</span>
-            {% endif %}
-          </td>
-          <td style="text-align:center;">{{ row.deliverable_count }}</td>
-          {% for w in range(1, total_weeks + 1) %}
-          <td style="text-align:center;">
-            {% if row.weekly_status.get(w) %}
-            <span class="week-dot done" title="Submitted"></span>
-            {% elif w == week_number %}
-            <span class="week-dot current" title="Current week"></span>
-            {% else %}
-            <span class="week-dot" title="Not submitted"></span>
-            {% endif %}
-          </td>
-          {% endfor %}
-          <td>
-            <a href="/admin/intern/{{ row.intern.intern_id }}" class="button is-small is-light">View</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
+{% else %}
+<div class="notification is-info is-light">No interns in the roster yet.</div>
+{% endfor %}
+
+<!-- Mentors -->
+{% if mentors %}
+<div class="role-section">
+  <div class="section-label">Mentors</div>
+  <div class="card is-detail">
+    <div class="card-content" style="padding:0;overflow-x:auto;">
+      <table class="table is-fullwidth is-hoverable is-size-7 role-table" style="margin:0;">
+        <thead>
+          <tr style="background:var(--cdp-light);">
+            <th style="padding-left:1rem;">Name</th>
+            <th>Email</th>
+            <th>Track</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in mentors %}
+          <tr>
+            <td style="padding-left:1rem;font-weight:700;color:var(--cdp-navy);">{{ m.display_name }}</td>
+            <td>{{ m.preferred_email or '—' }}</td>
+            <td>{{ tracks[m.track_id].name if m.track_id and m.track_id in tracks else m.track_id or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Sponsors -->
+{% if sponsors %}
+<div class="role-section">
+  <div class="section-label">Sponsors</div>
+  <div class="card is-detail">
+    <div class="card-content" style="padding:0;overflow-x:auto;">
+      <table class="table is-fullwidth is-hoverable is-size-7 role-table" style="margin:0;">
+        <thead>
+          <tr style="background:var(--cdp-light);">
+            <th style="padding-left:1rem;">Name</th>
+            <th>Email</th>
+            <th>Track</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sponsors %}
+          <tr>
+            <td style="padding-left:1rem;font-weight:700;color:var(--cdp-navy);">{{ s.display_name }}</td>
+            <td>{{ s.preferred_email or '—' }}</td>
+            <td>{{ tracks[s.track_id].name if s.track_id and s.track_id in tracks else s.track_id or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <div class="mt-4">
   <p class="is-size-7 has-text-grey">

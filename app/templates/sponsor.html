@@ -1,87 +1,161 @@
 {% extends "base.html" %}
-{% block title %}Sponsor View — CDP Intern Portal{% endblock %}
+{% block title %}Sponsor Dashboard — CDP Intern Portal{% endblock %}
 
 {% block nav_links %}
 <a class="navbar-item is-active" href="/sponsor">My Track</a>
-<a class="navbar-item" href="/sponsor/feedback">Submit Feedback</a>
 <a class="navbar-item" href="/auth/logout">Sign Out</a>
 {% endblock %}
 
+{% block head %}
+<style>
+  .stat-card {
+    background: #fff; border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    text-align: center;
+  }
+  .stat-card .stat-value {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.75rem; font-weight: 700; line-height: 1;
+    color: var(--cdp-navy);
+  }
+  .stat-card .stat-label { font-size: 11px; letter-spacing: 1px; color: #888; margin-top: 4px; text-transform: uppercase; }
+  .stat-card.good .stat-value { color: #48c78e; }
+  .track-pill {
+    background: var(--cdp-salmon); color: #fff; border-radius: 4px;
+    padding: 2px 10px; font-family: 'Roboto Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  }
+  .section-label {
+    font-family: 'Roboto Mono', monospace; font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--cdp-blue); font-weight: 700;
+    margin-bottom: .75rem; padding-bottom: 6px;
+    border-bottom: 2px solid var(--cdp-blue); display: inline-block;
+  }
+  .intern-table td, .intern-table th { vertical-align: middle !important; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1 class="title cdp-heading">
-  {% if is_admin_view %}All Tracks{% elif track %}{{ track.name }}{% else %}Sponsor Dashboard{% endif %}
-</h1>
 
 {% if is_admin_view and track_data %}
+<!-- Admin viewing all tracks in sponsor view -->
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;">
+  <h1 class="title cdp-heading" style="margin:0;">All Tracks</h1>
+  <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">Week {{ week_number }}</span>
+</div>
+
 {% for td in track_data %}
-<div class="card is-track mb-4">
-  <div class="card-content">
-    <h2 class="subtitle is-6 cdp-heading">{{ td.track.name }}</h2>
-    <p style="color:#888;font-size:13px;">Mentor: {{ td.track.employer_sponsor }}</p>
-    <table class="table is-fullwidth is-striped is-size-7 mt-3">
-      <thead>
-        <tr>
-          <th>Intern</th>
-          <th>Week {{ week_number }} Check-In</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in td.interns %}
-        <tr>
-          <td>{{ row.intern.display_name }}</td>
-          <td>
-            {% if row.checked_in %}
-            <span class="tag is-checkedin">Done</span>
-            {% else %}
-            <span class="tag is-missing">Missing</span>
-            {% endif %}
-          </td>
-          <td><a href="/sponsor/intern/{{ row.intern.intern_id }}" style="color:var(--cdp-blue);">View</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="mb-5">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem;flex-wrap:wrap;">
+    <span class="track-pill">{{ td.track.name }}</span>
+    <span style="font-size:13px;color:#888;">
+      Mentor: <strong>{{ td.track.employer_sponsor }}</strong> &mdash;
+      {{ td.interns|length }} intern{{ 's' if td.interns|length != 1 else '' }}
+    </span>
+  </div>
+  <div class="card is-detail">
+    <div class="card-content" style="padding:0;overflow-x:auto;">
+      <table class="table is-fullwidth is-hoverable is-size-7 intern-table" style="margin:0;">
+        <thead>
+          <tr style="background:var(--cdp-light);">
+            <th style="padding-left:1rem;">Intern</th>
+            <th>Week {{ week_number }} Check-In</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in td.interns %}
+          <tr>
+            <td style="padding-left:1rem;font-weight:700;color:var(--cdp-navy);">{{ row.intern.display_name }}</td>
+            <td>
+              {% if row.checked_in %}
+              <span class="tag is-checkedin">Done ✓</span>
+              {% else %}
+              <span class="tag is-missing">Missing</span>
+              {% endif %}
+            </td>
+            <td><a href="/sponsor/intern/{{ row.intern.intern_id }}" class="button is-small is-light">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 {% endfor %}
 
 {% else %}
-<p class="subtitle is-6" style="color:#888;">
-  Week {{ week_number }} &mdash; {{ track.employer_sponsor if track else '' }}
+<!-- Sponsor viewing their own track -->
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;">
+  <h1 class="title cdp-heading" style="margin:0;">
+    {% if track %}{{ track.name }}{% else %}Sponsor Dashboard{% endif %}
+  </h1>
+  <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">Week {{ week_number }}</span>
+</div>
+
+{% if track %}
+<p style="color:#888;font-size:14px;margin-bottom:1.5rem;">
+  {{ track.employer_sponsor }} &mdash; {{ intern_rows|length }} intern{{ 's' if intern_rows|length != 1 else '' }}
 </p>
+{% endif %}
 
 {% if intern_rows %}
+
+<!-- Stats -->
+{% set checked_in_count = intern_rows|selectattr('checked_in')|list|length %}
+<div class="columns is-mobile is-multiline mb-4">
+  <div class="column is-4-tablet is-6-mobile">
+    <div class="stat-card highlight">
+      <div class="stat-value">{{ intern_rows|length }}</div>
+      <div class="stat-label">Interns</div>
+    </div>
+  </div>
+  <div class="column is-4-tablet is-6-mobile">
+    <div class="stat-card {% if checked_in_count == intern_rows|length %}good{% endif %}">
+      <div class="stat-value">{{ checked_in_count }}/{{ intern_rows|length }}</div>
+      <div class="stat-label">Week {{ week_number }} Check-Ins</div>
+    </div>
+  </div>
+  <div class="column is-4-tablet is-6-mobile">
+    <div class="stat-card">
+      <div class="stat-value">{{ intern_rows|sum(attribute='deliverable_count') }}</div>
+      <div class="stat-label">Deliverables</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">Intern Status</div>
 <div class="card is-detail">
-  <div class="card-content">
-    <table class="table is-fullwidth is-striped">
+  <div class="card-content" style="padding:0;overflow-x:auto;">
+    <table class="table is-fullwidth is-hoverable is-size-7 intern-table" style="margin:0;">
       <thead>
-        <tr>
-          <th>Intern</th>
-          <th>Week {{ week_number }} Check-In</th>
-          <th>Deliverables</th>
-          <th>Actions</th>
+        <tr style="background:var(--cdp-light);">
+          <th style="padding-left:1rem;">Intern</th>
+          <th>School</th>
+          <th style="text-align:center;">Week {{ week_number }} Check-In</th>
+          <th style="text-align:center;">Deliverables</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         {% for row in intern_rows %}
         <tr>
-          <td>
-            <strong>{{ row.intern.display_name }}</strong>
-            <br><span class="is-size-7 has-text-grey">{{ row.intern.school or '' }}</span>
+          <td style="padding-left:1rem;">
+            <strong style="color:var(--cdp-navy);">{{ row.intern.display_name }}</strong>
           </td>
-          <td>
+          <td style="color:#888;">{{ row.intern.school or '—' }}</td>
+          <td style="text-align:center;">
             {% if row.checked_in %}
             <span class="tag is-checkedin">Done ✓</span>
             {% else %}
             <span class="tag is-missing">Missing</span>
             {% endif %}
           </td>
-          <td>{{ row.deliverable_count }}</td>
+          <td style="text-align:center;">{{ row.deliverable_count }}</td>
           <td>
-            <a href="/sponsor/intern/{{ row.intern.intern_id }}" class="button is-small is-light">
-              View
-            </a>
+            <a href="/sponsor/intern/{{ row.intern.intern_id }}" class="button is-small is-light">View</a>
           </td>
         </tr>
         {% endfor %}
@@ -89,8 +163,10 @@
     </table>
   </div>
 </div>
+
 {% else %}
 <div class="notification is-info is-light">No interns on your track yet.</div>
 {% endif %}
 {% endif %}
+
 {% endblock %}

@@ -28,23 +28,31 @@ def get_email_template_env() -> Environment:
 
 @router.get("", response_class=HTMLResponse)
 async def admin_home(request: Request, session: AdminSession):
-    """All interns table with week status."""
+    """Admin dashboard — interns grouped by track, plus mentor/sponsor rosters."""
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
+    total_weeks = int(sheets.get_config("program_weeks") or 6)
 
-    all_interns = sheets.get_all_roster()
-    tracks = {t.track_id: t for t in sheets.get_all_tracks()}
+    all_roster = sheets.get_all_roster()
+    tracks_list = sheets.get_all_tracks()
+    tracks = {t.track_id: t for t in tracks_list}
 
+    interns = [r for r in all_roster if r.role == "intern"]
+    mentors = [r for r in all_roster if r.role == "mentor"]
+    sponsors = [r for r in all_roster if r.role == "sponsor"]
+
+    # Build intern rows with per-week check-in status
     intern_rows = []
-    for intern in all_interns:
+    checked_in_this_week = 0
+    for intern in interns:
         checkins = sheets.get_checkins_for_intern(intern.intern_id)
-        # Build weekly status dict: {week: True/False}
         weekly_status = {}
         for c in checkins:
             wn = c.get("week_number")
             if wn:
                 weekly_status[int(wn)] = True
-
+        if weekly_status.get(week_number):
+            checked_in_this_week += 1
         track = tracks.get(intern.track_id)
         intern_rows.append(
             {
@@ -55,18 +63,31 @@ async def admin_home(request: Request, session: AdminSession):
             }
         )
 
-    # Get total weeks from config
-    total_weeks = int(sheets.get_config("program_weeks") or 6)
+    # Group intern rows by track
+    track_groups = {}
+    for row in intern_rows:
+        tid = row["intern"].track_id or "unassigned"
+        if tid not in track_groups:
+            track_groups[tid] = {
+                "track": row["track"] or tracks.get(tid),
+                "track_id": tid,
+                "rows": [],
+            }
+        track_groups[tid]["rows"].append(row)
 
     return templates.TemplateResponse(
         "admin.html",
         {
             "request": request,
-            "intern_rows": intern_rows,
+            "track_groups": list(track_groups.values()),
+            "mentors": mentors,
+            "sponsors": sponsors,
+            "tracks": tracks,
             "week_number": week_number,
             "total_weeks": total_weeks,
-            "total_interns": len(all_interns),
-            "claimed_interns": sum(1 for i in all_interns if i.is_claimed),
+            "total_interns": len(interns),
+            "claimed_interns": sum(1 for i in interns if i.is_claimed),
+            "checked_in_this_week": checked_in_this_week,
         },
     )
 

@@ -9,81 +9,137 @@
 <a class="navbar-item" href="/auth/logout">Sign Out</a>
 {% endblock %}
 
+{% block head %}
+<style>
+  .progress-bar-wrap { background: #e8ecf0; border-radius: 4px; height: 8px; margin-top: 6px; }
+  .progress-bar-fill { background: var(--cdp-blue); border-radius: 4px; height: 8px; transition: width .4s; }
+  .action-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: .6rem 1rem; border-radius: 8px;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    border: 2px solid transparent; transition: background .15s;
+  }
+  .action-btn.primary { background: var(--cdp-salmon); color: #fff; }
+  .action-btn.primary:hover { background: #e8607a; color: #fff; }
+  .action-btn.outline { background: #fff; color: var(--cdp-navy); border-color: #d8dde3; }
+  .action-btn.outline:hover { background: var(--cdp-light); }
+  .deliverable-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+  .deliverable-item:last-child { border-bottom: none; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1 class="title cdp-heading" style="margin-bottom:0.5rem;">
-  Welcome back, {{ intern.display_name }}!
-</h1>
-<p class="subtitle is-6" style="color:#666;margin-bottom:1.5rem;">
-  Program Week {{ week_number }}
-  {% if checked_in_this_week %}
-  &nbsp;<span class="tag is-checkedin">Check-In Done ✓</span>
-  {% else %}
-  &nbsp;<span class="tag is-missing">Check-In Due</span>
-  {% endif %}
-</p>
+<!-- Header -->
+<div style="margin-bottom:1.75rem;">
+  <h1 class="title cdp-heading" style="margin-bottom:2px;">
+    Welcome back, {{ intern.display_name }}!
+  </h1>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span style="color:#888;font-size:14px;">Program Week {{ week_number }}</span>
+    {% if checked_in_this_week %}
+    <span class="tag is-checkedin">Check-In Done ✓</span>
+    {% else %}
+    <span class="tag is-missing">Check-In Due</span>
+    {% endif %}
+    {% if intern.track_id %}
+    <span class="tag" style="background:var(--cdp-navy);color:#fff;">{{ track.name if track else intern.track_id }}</span>
+    {% endif %}
+  </div>
+</div>
 
 <div class="columns">
-  <!-- Track Card -->
-  <div class="column is-half">
-    <div class="card is-track mb-4">
-      <div class="card-content">
-        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;">Your Track</p>
-        {% if track %}
-        <h2 class="title is-5 has-text-cdp-navy" style="margin-bottom:4px;">{{ track.name }}</h2>
-        <p class="is-size-7" style="color:#888;">Mentor: <strong>{{ track.employer_sponsor }}</strong></p>
-        <p class="mt-2 is-size-7" style="color:#555;">{{ track.description[:200] }}{% if track.description|length > 200 %}…{% endif %}</p>
-        {% else %}
-        <p class="has-text-grey">Track info loading...</p>
-        {% endif %}
-      </div>
-    </div>
+  <!-- Left column -->
+  <div class="column is-two-thirds">
 
-    <!-- Quick Links -->
-    <div class="card is-detail">
+    <!-- Quick Actions -->
+    <div class="card is-detail mb-4">
       <div class="card-content">
-        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;">Quick Actions</p>
-        <div class="buttons mt-2">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:.75rem;">Actions for Week {{ week_number }}</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
           {% if not checked_in_this_week %}
-          <a href="/checkin" class="button is-primary">Submit Week {{ week_number }} Check-In</a>
+          <a href="/checkin" class="action-btn primary">
+            <span>&#10003;</span> Submit Week {{ week_number }} Check-In
+          </a>
           {% else %}
-          <a href="/checkin" class="button is-light">View Check-In</a>
+          <a href="/checkin" class="action-btn outline">&#10003; View Check-In</a>
           {% endif %}
-          <a href="/deliverables" class="button is-light">Submit Deliverable</a>
-          <a href="/me" class="button is-light">Edit Profile</a>
+          <a href="/deliverables" class="action-btn outline">&#8679; Submit Deliverable</a>
+          <a href="/me" class="action-btn outline">&#9998; Edit Profile</a>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Deliverables -->
-  <div class="column is-half">
-    <div class="card is-detail">
+    <!-- Recent Deliverables -->
+    <div class="card is-detail mb-4">
       <div class="card-content">
-        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;">
-          Recent Deliverables ({{ deliverable_count }} total)
-        </p>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin:0;">
+            Deliverables <span style="color:#aaa;font-weight:400;">({{ deliverable_count }} total)</span>
+          </p>
+          <a href="/deliverables" class="is-size-7" style="color:var(--cdp-blue);">View all →</a>
+        </div>
         {% if recent_deliverables %}
-        <ul class="mt-2">
-          {% for d in recent_deliverables %}
-          <li style="margin-bottom:8px;">
-            <p class="is-size-7" style="font-weight:700;color:var(--cdp-navy);">
-              {% if d.url %}
-              <a href="{{ d.url }}" target="_blank" rel="noopener" style="color:var(--cdp-blue);">{{ d.title }}</a>
-              {% else %}
-              {{ d.title }}
-              {% endif %}
-            </p>
-            <p class="is-size-7 has-text-grey">Week {{ d.week_number }}</p>
-          </li>
-          {% endfor %}
-        </ul>
-        <a href="/deliverables" class="is-size-7" style="color:var(--cdp-blue);">View all deliverables →</a>
+        {% for d in recent_deliverables %}
+        <div class="deliverable-item">
+          <p class="is-size-7" style="font-weight:700;color:var(--cdp-navy);margin:0;">
+            {% if d.url %}
+            <a href="{{ d.url }}" target="_blank" rel="noopener" style="color:var(--cdp-blue);">{{ d.title }}</a>
+            {% else %}
+            {{ d.title }}
+            {% endif %}
+          </p>
+          <p class="is-size-7 has-text-grey" style="margin:0;">Week {{ d.week_number }}</p>
+        </div>
+        {% endfor %}
         {% else %}
         <p class="is-size-7 has-text-grey mt-2">No deliverables submitted yet.</p>
         <a href="/deliverables" class="button is-primary is-small mt-3">Submit Your First Deliverable</a>
         {% endif %}
       </div>
     </div>
+
+  </div>
+
+  <!-- Right column -->
+  <div class="column">
+
+    <!-- Track Info -->
+    <div class="card is-track mb-4">
+      <div class="card-content">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:.5rem;">Your Track</p>
+        {% if track %}
+        <h2 class="title is-6 has-text-cdp-navy" style="margin-bottom:4px;">{{ track.name }}</h2>
+        {% if track.employer_sponsor %}
+        <p class="is-size-7" style="color:#888;">Mentor: <strong>{{ track.employer_sponsor }}</strong></p>
+        {% endif %}
+        {% if track.description %}
+        <p class="mt-2 is-size-7" style="color:#666;">
+          {{ track.description[:160] }}{% if track.description|length > 160 %}…{% endif %}
+        </p>
+        {% endif %}
+        {% else %}
+        <p class="is-size-7 has-text-grey">Track not yet assigned.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 6-week progress -->
+    <div class="card is-detail">
+      <div class="card-content">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:.75rem;">Program Progress</p>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span class="is-size-7" style="color:#555;">Week {{ week_number }} of 6</span>
+          <span class="is-size-7 has-text-cdp-blue" style="font-weight:700;">{{ ((week_number / 6) * 100)|int }}%</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:{{ ((week_number / 6) * 100)|int }}%;"></div>
+        </div>
+        <p class="is-size-7 has-text-grey mt-3">
+          {{ deliverable_count }} deliverable{{ 's' if deliverable_count != 1 else '' }} submitted
+        </p>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}
