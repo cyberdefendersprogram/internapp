@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     magic_link_ttl_minutes: int = 15
     rate_limit_per_email_15m: int = 10
 
-    # Discord bot API key
-    bot_api_key: str = ""
+    # Discord bot token (used as BOT_API_KEY for OpenClaw → FastAPI auth)
+    discord_cdpbot_token: str = ""
 
     # SQLite
     sqlite_path: str = "data/app.db"

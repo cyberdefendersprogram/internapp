@@ -143,7 +143,7 @@ def require_bot_api_key(
     authorization: Annotated[str | None, Header()] = None,
 ) -> str:
     """Require a valid BOT_API_KEY. Accepts X-Api-Key header or Bearer token."""
-    if not settings.bot_api_key:
+    if not settings.discord_cdpbot_token:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Bot API not configured",
@@ -151,7 +151,7 @@ def require_bot_api_key(
     token = x_api_key or ""
     if not token and authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
-    if token != settings.bot_api_key:
+    if token != settings.discord_cdpbot_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
