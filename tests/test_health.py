@@ -28,7 +28,8 @@ class TestHealth:
         assert "sqlite" in data["checks"]
         assert "sheets" in data["checks"]
         assert "version" in data
-        assert data["version"] == "1.0.0"
+        assert isinstance(data["version"], str)
+        assert len(data["version"]) > 0
 
     @patch("app.routers.health.get_sheets_client")
     def test_health_returns_503_when_sheets_down(self, mock_sheets, client):

@@ -1,4 +1,16 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_VERSION_FILE = Path(__file__).parent.parent / "VERSION"
+
+
+def _read_version() -> str:
+    try:
+        v = _VERSION_FILE.read_text().strip()
+        return v if v else "dev"
+    except FileNotFoundError:
+        return "dev"
 
 
 class Settings(BaseSettings):
@@ -6,7 +18,7 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "Cyber Defenders Program — Intern Portal"
-    version: str = "1.0.0"
+    version: str = _read_version()
     env: str = "development"
     log_level: str = "INFO"
 

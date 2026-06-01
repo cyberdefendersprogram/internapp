@@ -1,5 +1,6 @@
 FROM python:3.12-slim
 
+ARG GIT_SHA=dev
 WORKDIR /app
 
 # Install system dependencies (curl for health checks)
@@ -12,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY . .
+RUN echo "$GIT_SHA" > VERSION
 
 # Create data directory
 RUN mkdir -p /var/lib/internapp
