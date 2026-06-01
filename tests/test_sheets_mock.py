@@ -134,6 +134,90 @@ class TestGetAllTracks:
             assert track is not None
             assert track.track_id == "t1"
 
+    def test_get_tracks_by_sponsor_email_single(self, mock_worksheet):
+        """Returns list with one track for a single-track sponsor."""
+        from app.services.cache import invalidate_all
+        from app.services.sheets import SheetsClient
+
+        invalidate_all()
+        client = SheetsClient()
+        mock_worksheet.get_all_records.return_value = [
+            {
+                "track_id": "t1",
+                "name": "Track One",
+                "description": "",
+                "employer_sponsor": "Alice",
+                "sponsor_email": "alice@co.com",
+                "status": "active",
+            },
+            {
+                "track_id": "t2",
+                "name": "Track Two",
+                "description": "",
+                "employer_sponsor": "Bob",
+                "sponsor_email": "bob@co.com",
+                "status": "active",
+            },
+        ]
+
+        with patch.object(client, "_get_worksheet", return_value=mock_worksheet):
+            tracks = client.get_tracks_by_sponsor_email("alice@co.com")
+            assert len(tracks) == 1
+            assert tracks[0].track_id == "t1"
+
+    def test_get_tracks_by_sponsor_email_multi(self, mock_worksheet):
+        """Returns multiple tracks when sponsor email appears on more than one."""
+        from app.services.cache import invalidate_all
+        from app.services.sheets import SheetsClient
+
+        invalidate_all()
+        client = SheetsClient()
+        mock_worksheet.get_all_records.return_value = [
+            {
+                "track_id": "t1",
+                "name": "Track One",
+                "description": "",
+                "employer_sponsor": "Alice",
+                "sponsor_email": "alice@co.com",
+                "status": "active",
+            },
+            {
+                "track_id": "t2",
+                "name": "Track Two",
+                "description": "",
+                "employer_sponsor": "Alice",
+                "sponsor_email": "alice@co.com",
+                "status": "active",
+            },
+        ]
+
+        with patch.object(client, "_get_worksheet", return_value=mock_worksheet):
+            tracks = client.get_tracks_by_sponsor_email("alice@co.com")
+            assert len(tracks) == 2
+            assert {t.track_id for t in tracks} == {"t1", "t2"}
+
+    def test_get_tracks_by_sponsor_email_none(self, mock_worksheet):
+        """Returns empty list when no track matches."""
+        from app.services.cache import invalidate_all
+        from app.services.sheets import SheetsClient
+
+        invalidate_all()
+        client = SheetsClient()
+        mock_worksheet.get_all_records.return_value = [
+            {
+                "track_id": "t1",
+                "name": "Track One",
+                "description": "",
+                "employer_sponsor": "Alice",
+                "sponsor_email": "alice@co.com",
+                "status": "active",
+            },
+        ]
+
+        with patch.object(client, "_get_worksheet", return_value=mock_worksheet):
+            tracks = client.get_tracks_by_sponsor_email("nobody@co.com")
+            assert tracks == []
+
 
 class TestGetRosterByEmail:
     """Tests for get_roster_by_email method."""
@@ -332,3 +416,61 @@ class TestAppendDeliverable:
             result = sheets_client.append_deliverable(data)
             assert result is True
             assert mock_worksheet.append_row.called
+
+
+class TestDiscordRoster:
+    """Tests for Discord identity linking methods."""
+
+    def _roster_row(self, **kwargs):
+        base = {
+            "intern_id": "CDP-001",
+            "full_name": "Test, User",
+            "track_id": "t1",
+            "preferred_email": "test@example.com",
+            "claimed_at": "2026-06-01T10:00:00",
+            "onboarding_completed_at": "",
+            "preferred_name": "",
+            "school": "",
+            "year": "",
+            "linkedin": "",
+            "github": "",
+            "bio": "",
+            "last_login_at": "",
+            "discord_id": "",
+            "discord_notify": "true",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_get_roster_by_discord_id_found(self, sheets_client, mock_worksheet):
+        """Returns InternEntry when discord_id matches."""
+        mock_worksheet.get_all_records.return_value = [
+            self._roster_row(discord_id="111222333"),
+        ]
+
+        with patch.object(sheets_client, "_get_worksheet", return_value=mock_worksheet):
+            intern = sheets_client.get_roster_by_discord_id("111222333")
+            assert intern is not None
+            assert intern.discord_id == "111222333"
+
+    def test_get_roster_by_discord_id_not_found(self, sheets_client, mock_worksheet):
+        """Returns None when no row matches the discord_id."""
+        mock_worksheet.get_all_records.return_value = [
+            self._roster_row(discord_id=""),
+        ]
+
+        with patch.object(sheets_client, "_get_worksheet", return_value=mock_worksheet):
+            intern = sheets_client.get_roster_by_discord_id("999")
+            assert intern is None
+
+    def test_roster_row_with_discord_fields_parsed(self, sheets_client, mock_worksheet):
+        """from_row correctly parses discord_id and discord_notify."""
+        mock_worksheet.get_all_records.return_value = [
+            self._roster_row(discord_id="777888999", discord_notify="false"),
+        ]
+
+        with patch.object(sheets_client, "_get_worksheet", return_value=mock_worksheet):
+            intern = sheets_client.get_roster_by_email("test@example.com")
+            assert intern is not None
+            assert intern.discord_id == "777888999"
+            assert intern.discord_notify is False

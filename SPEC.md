@@ -250,7 +250,7 @@ One row per user (intern, mentor, admin, or sponsor). Admin pre-populates all fi
 |--------|------|--------|
 | `intern_id` | string | Admin (e.g., `CDP-2026-001`) |
 | `full_name` | string | Admin (e.g., `Bhandari, Vaibhav`) |
-| `track_id` | string | Admin (e.g., `track-1`) |
+| `track_id` | string | Admin — single ID for interns (e.g., `track-1`); comma-separated for multi-track mentors/sponsors (e.g., `track-1,track-3`) |
 | `role` | string | Admin — `intern` (default), `mentor`, `admin`, or `sponsor` |
 | `preferred_email` | string | **Interns**: blank until claimed. **Mentor/admin/sponsor**: pre-set by admin. |
 | `preferred_name` | string | Intern (optional) |
@@ -262,13 +262,15 @@ One row per user (intern, mentor, admin, or sponsor). Admin pre-populates all fi
 | `claimed_at` | ISO timestamp | System |
 | `onboarding_completed_at` | ISO timestamp | System |
 | `last_login_at` | ISO timestamp | System |
+| `discord_id` | string | Set by `/link` flow; blank until linked |
+| `discord_notify` | boolean | `true` default; set to `false` via `/notify off` |
 
 **Constraints**:
 - `intern_id` must be unique
 - `role` must be one of: `intern`, `mentor`, `admin`, `sponsor` (defaults to `intern` if blank/invalid)
-- For `intern` rows: `preferred_email` blank until claimed, immutable after
-- For `mentor`/`admin`/`sponsor` rows: `preferred_email` must be set before first login
-- `track_id` must match a `track_id` in the `Tracks` sheet
+- For `intern` rows: `preferred_email` blank until claimed, immutable after; `track_id` is a single value
+- For `mentor`/`admin`/`sponsor` rows: `preferred_email` must be set before first login; `track_id` may be comma-separated for multi-track assignment
+- Each `track_id` value must match a `track_id` in the `Tracks` sheet
 
 ### 8.2 `Tracks`
 
@@ -351,7 +353,46 @@ Audit log of all emails sent from the app.
 | `status` | string | `sent` or `failed` |
 | `note` | string | Error detail if failed |
 
-### 8.8 `Config`
+### 8.8 `Tasks`
+
+Append-on-create; status updated in-place. One row per task per intern.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `task_id` | string | UUID — stable across web and Discord |
+| `title` | string | Short task name |
+| `description` | string | Markdown body (optional) |
+| `task_type` | string | `system`, `assigned`, or `self` |
+| `assigned_to` | string | `intern_id`, `track:track-1`, or `all` |
+| `assigned_by` | string | `intern_id` or `system` |
+| `track_id` | string | FK → Tracks (optional) |
+| `week_number` | integer | Which week the task belongs to |
+| `due_week` | integer | Week the task is due |
+| `status` | string | `todo`, `done`, or `skipped` |
+| `priority` | string | `normal` or `high` |
+| `linked_feature` | string | `checkin`, `deliverable`, `onboarding`, or blank — auto-completes on feature submit |
+| `source` | string | `web`, `discord`, or `system` |
+| `skip_reason` | string | Required when status = `skipped` |
+| `created_at` | ISO timestamp | Creation time |
+| `completed_at` | ISO timestamp | Completion time (set on done/skipped) |
+
+### 8.9 `Task_Templates`
+
+Admin edits once. The seed script fans these out to individual intern rows in `Tasks` at program start. They define the default 6-week curriculum so admins don't create tasks one-by-one for every intern.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `template_id` | string | Unique key |
+| `title` | string | |
+| `description` | string | |
+| `task_type` | string | |
+| `assigned_to` | string | `all`, `role:intern`, or `track:track-1` |
+| `week_number` | integer | |
+| `due_week` | integer | |
+| `priority` | string | |
+| `linked_feature` | string | |
+
+### 8.11 `Config`
 
 Key-value configuration. Admin edits directly in Sheets.
 
@@ -533,13 +574,42 @@ Admin sees summary: N sent, M failed
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/admin` | All interns, program-wide progress overview |
+| GET | `/admin` | All interns grouped by track, program-wide progress overview |
 | GET | `/admin/intern/{intern_id}` | Individual intern detail |
 | GET | `/admin/attendance` | Attendance log + entry form |
 | POST | `/admin/attendance` | Log attendance |
 | GET | `/admin/email` | Email composer |
 | POST | `/admin/email/preview` | Render preview for one sample recipient |
 | POST | `/admin/email/send` | Send emails, log results |
+
+### 12.6 Tasks API (JSON)
+
+All endpoints require a valid session cookie. Admin and mentor see all tasks for their scope; interns see only their own tasks.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/tasks` | My tasks (role-filtered); `?week=N` to filter by week |
+| POST | `/api/tasks` | Create a task |
+| PATCH | `/api/tasks/{task_id}` | Update task status or fields |
+| GET | `/api/tasks/team` | Mentor/admin: open tasks across track interns |
+| GET | `/api/tasks/overdue` | Mentor/admin: tasks past their `due_week` still in `todo` |
+| GET | `/api/tasks/summary` | Admin: week × track completion matrix |
+
+### 12.7 Bot API (JSON)
+
+Authenticated with `Authorization: Bearer <DISCORD_CDPBOT_TOKEN>` or `X-Api-Key: <token>` header. Same business logic as the tasks API; used exclusively by the Discord bot.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/bot/tasks` | Tasks for a linked Discord user (`?discord_id=...`) |
+| POST | `/api/bot/tasks` | Create a task from Discord |
+| PATCH | `/api/bot/tasks/{task_id}` | Update task status from Discord |
+
+### 12.8 Auth additions
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/discord-link` | Complete Discord identity linking (`?token=...&discord_id=...`) |
 
 ---
 
@@ -691,11 +761,12 @@ Returns `200` if healthy, `503` if degraded.
 
 ## 18. Deferred (v2)
 
-- Discord channel sync (activity signals, standup ingestion)
-- Automated scheduled reminders (cron-triggered, not manual)
+- Discord-native check-ins (standup modal as alternative to web form)
+- Automated scheduled reminders (cron-triggered Monday digests, Sunday overdue pings)
 - Intern-facing deliverable comments from sponsor
 - PDF export of intern progress report
 - Bulk attendance import from CSV
+- Task fan-out triggered automatically on `program_start_date` (currently `make seed-tasks` is manual)
 
 ---
 
@@ -703,8 +774,8 @@ Returns `200` if healthy, `503` if degraded.
 
 - [ ] 25 interns can log in simultaneously without rate-limit errors
 - [ ] Magic link → claim → onboarding works end-to-end for interns
-- [ ] Sponsors log in and see only their own track's interns
-- [ ] Admins see all interns and can log attendance and send email
+- [ ] Sponsors log in and see only their own track's interns; multi-track sponsors see all their tracks grouped
+- [ ] Admins see all interns grouped by track and can log attendance and send email
 - [ ] Email reminders render template variables correctly and log to `Email_Log` sheet
 - [ ] Public `/program` shows tracks + interns + deliverable links without auth
 - [ ] Track config changes in Sheets reflected within 10 minutes (cache TTL)
@@ -712,6 +783,9 @@ Returns `200` if healthy, `503` if degraded.
 - [ ] CDP logo appears in navbar and sign-in page
 - [ ] Push to `main` deploys within 5 minutes
 - [ ] Monthly infrastructure cost delta: $0 (shared droplet)
+- [ ] Submitting a check-in or deliverable auto-completes the matching linked task
+- [ ] Discord `/link` flow connects a Discord user to their Roster entry end-to-end
+- [ ] Bot API rejects requests without a valid `DISCORD_CDPBOT_TOKEN`
 
 ---
 

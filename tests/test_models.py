@@ -147,6 +147,50 @@ class TestInternEntry:
         intern = InternEntry.from_row(row)
         assert intern.role == "intern"
 
+    def test_track_ids_single(self):
+        """track_ids returns a one-element list for a single track_id."""
+        intern = InternEntry(intern_id="CDP-001", full_name="Test", track_id="track-1")
+        assert intern.track_ids == ["track-1"]
+
+    def test_track_ids_multi(self):
+        """track_ids splits comma-separated track_id values."""
+        intern = InternEntry(intern_id="CDP-M-01", full_name="Mentor", track_id="track-1,track-3")
+        assert intern.track_ids == ["track-1", "track-3"]
+
+    def test_track_ids_empty(self):
+        """track_ids returns empty list when track_id is blank."""
+        intern = InternEntry(intern_id="CDP-001", full_name="Test", track_id="")
+        assert intern.track_ids == []
+
+    def test_track_ids_strips_whitespace(self):
+        """track_ids strips whitespace around commas."""
+        intern = InternEntry(intern_id="CDP-M-01", full_name="Test", track_id="track-1 , track-2")
+        assert intern.track_ids == ["track-1", "track-2"]
+
+    def test_discord_id_from_row(self):
+        """discord_id is parsed from row dict."""
+        row = {"intern_id": "CDP-001", "full_name": "Test", "discord_id": "123456789"}
+        intern = InternEntry.from_row(row)
+        assert intern.discord_id == "123456789"
+
+    def test_discord_id_blank_becomes_none(self):
+        """Empty discord_id becomes None."""
+        row = {"intern_id": "CDP-001", "full_name": "Test", "discord_id": ""}
+        intern = InternEntry.from_row(row)
+        assert intern.discord_id is None
+
+    def test_discord_notify_default_true(self):
+        """discord_notify defaults to True when column is absent."""
+        row = {"intern_id": "CDP-001", "full_name": "Test"}
+        intern = InternEntry.from_row(row)
+        assert intern.discord_notify is True
+
+    def test_discord_notify_false(self):
+        """discord_notify is False when value is 'false'."""
+        row = {"intern_id": "CDP-001", "full_name": "Test", "discord_notify": "false"}
+        intern = InternEntry.from_row(row)
+        assert intern.discord_notify is False
+
 
 class TestTrackEntry:
     """Tests for TrackEntry model."""
@@ -180,6 +224,11 @@ class TestTrackEntry:
     def test_is_active_case_insensitive(self):
         """is_active is case-insensitive."""
         track = TrackEntry(track_id="t1", name="Test", status="Active")
+        assert track.is_active is True
+
+    def test_is_active_empty_status(self):
+        """is_active is True when status is an empty string."""
+        track = TrackEntry(track_id="t1", name="Test", status="")
         assert track.is_active is True
 
     def test_from_row_defaults(self):

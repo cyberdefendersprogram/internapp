@@ -24,11 +24,12 @@ Lightweight intern tracking portal for the Cyber Defenders Summer 2026 program. 
 
 ## Auth
 
-Magic link only — no passwords. Three roles:
+Magic link only — no passwords. Four roles:
 
 | Role | How identified | Lands at |
 |------|---------------|---------|
 | `admin` | Email in `ADMIN_EMAILS` env var | `/admin` |
+| `mentor` | Roster row with `role=mentor` | `/admin` |
 | `sponsor` | Email matches a `sponsor_email` in Tracks sheet | `/sponsor` |
 | `intern` | Email claimed against a Roster row | `/home` |
 
@@ -58,13 +59,9 @@ New interns enter their `intern_id` to claim their account, then complete onboar
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `SQLITE_PATH` | `data/app.db` | SQLite database path |
 | `PORT` | `8001` | HTTP port inside container |
-| `APPLICANT_SHEETS_ID` | — | Separate spreadsheet for applicants |
 | `MAGIC_LINK_TTL_MINUTES` | `15` | Token expiry |
 | `RATE_LIMIT_PER_EMAIL_15M` | `10` | Max magic link requests per email per 15 min window |
-
-### Email
-
-The app sends all email via the **ForwardEmail REST API** (`https://api.forwardemail.net/v1/emails`). Set `FORWARDEMAIL_USER` and `FORWARDEMAIL_PASS` in your `.env`. SMTP variables (`SMTP_HOST`, etc.) are kept in config for reference but are not used.
+| `DISCORD_CDPBOT_TOKEN` | — | Bot API key — required for Discord bot integration |
 
 ---
 
@@ -87,11 +84,10 @@ App is at http://localhost:8001. Health check: http://localhost:8001/health.
 
 ## Deployment
 
-See [DEPLOY.md](DEPLOY.md) for the full setup guide. The short version:
+Push to `main` — GitHub Actions builds the image, pushes to GHCR, and SSHs to the droplet.
+The droplet runs `docker compose pull && docker compose up -d`.
 
-1. Push to `main` — GitHub Actions builds the image, pushes to GHCR, and SSHs to the droplet.
-2. The droplet runs `docker compose pull && docker compose up -d`.
-3. Secrets live in `/opt/internapp/env/.env` and `/etc/internapp/service-account.json` (mode 600).
+See [DEPLOY.md](DEPLOY.md) for the full setup guide.
 
 ```bash
 make logs      # tail live container logs
@@ -105,9 +101,37 @@ make db-reset  # wipe SQLite (does NOT touch Sheets data)
 
 ## Google Sheets Structure
 
-Single spreadsheet with these tabs: `Roster`, `Tracks`, `Check_ins`, `Deliverables`, `Attendance`, `Mentor_Feedback`, `Email_Log`, `Config`.
+Single spreadsheet with these tabs: `Roster`, `Tracks`, `Check_ins`, `Deliverables`, `Attendance`, `Mentor_Feedback`, `Email_Log`, `Config`, `Tasks`, `Task_Templates`.
 
 The service account (`internapp-sheets@internapp-497708.iam.gserviceaccount.com`) must have **Editor** access to the spreadsheet.
+
+### Multi-track mentors and sponsors
+
+The `track_id` column in `Roster` supports comma-separated values for mentors and sponsors who span multiple tracks (e.g., `track-1,track-3`). Intern rows use a single track ID.
+
+### Seeding tasks
+
+```bash
+# Create Tasks and Task_Templates sheet structure, then fan out templates to all interns
+python scripts/seed_sheets.py --seed-tasks
+
+# Add discord_id and discord_notify columns to an existing Roster sheet
+python scripts/seed_sheets.py --migrate-discord
+```
+
+---
+
+## Discord Bot Integration
+
+The CDP Discord bot (OpenClaw) communicates with this app via `/api/bot/*` endpoints, authenticated with the `DISCORD_CDPBOT_TOKEN` bearer token.
+
+**Identity linking flow:**
+1. Intern runs `/link` in Discord
+2. Bot requests a magic link to their program email
+3. Intern clicks the link — `/auth/discord-link` writes their Discord ID to the Roster sheet
+4. All future bot commands resolve automatically via Discord ID
+
+See `openclaw-prompt.md` for the full bot system prompt and command reference.
 
 ---
 
