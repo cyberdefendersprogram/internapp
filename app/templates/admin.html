@@ -115,6 +115,8 @@
     <span style="font-size:13px;color:#888;">
       {% if group.track and group.track.employer_sponsor %}
         Mentor: <strong>{{ group.track.employer_sponsor }}</strong> &mdash;
+      {% elif group.mentors %}
+        Mentor: <strong>{{ group.mentors|map(attribute='display_name')|join(', ') }}</strong> &mdash;
       {% endif %}
       {{ group.rows|length }} intern{{ 's' if group.rows|length != 1 else '' }}
     </span>
@@ -196,7 +198,11 @@
           <tr>
             <td style="padding-left:1rem;font-weight:700;color:var(--cdp-navy);">{{ m.display_name }}</td>
             <td>{{ m.preferred_email or '—' }}</td>
-            <td>{{ tracks[m.track_id].name if m.track_id and m.track_id in tracks else m.track_id or '—' }}</td>
+            <td>
+              {% set track_names = [] %}
+              {% for tid in m.track_ids %}{% if tid in tracks %}{% set _ = track_names.append(tracks[tid].name) %}{% endif %}{% endfor %}
+              {{ track_names|join(', ') or m.track_id or '—' }}
+            </td>
           </tr>
           {% endfor %}
         </tbody>

@@ -38,7 +38,7 @@ async def admin_home(request: Request, session: AdminSession):
     tracks = {t.track_id: t for t in tracks_list}
 
     interns = [r for r in all_roster if r.role == "intern"]
-    mentors = [r for r in all_roster if r.role == "mentor"]
+    mentors = [r for r in all_roster if r.role == "mentor" or (r.role == "admin" and r.track_id)]
     sponsors = [r for r in all_roster if r.role == "sponsor"]
 
     # Build intern rows with per-week check-in status
