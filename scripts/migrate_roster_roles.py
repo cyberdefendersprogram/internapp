@@ -83,8 +83,10 @@ def main():
             print(f"  Row {sheet_row} ({intern_id}): already has role = {current_role!r} — skipped")
 
     print(f"\nDone. {updated} row(s) updated.")
-    print("\nTo make someone an admin or mentor, edit their 'role' cell in the Roster sheet")
-    print("to 'admin' or 'mentor'. No code changes needed.")
+    print("\nValid roles: intern, mentor, admin, sponsor")
+    print("To assign a role, edit the 'role' cell in the Roster sheet. No code changes needed.")
+    print("IMPORTANT: For mentor/admin/sponsor rows, also pre-populate 'preferred_email' —")
+    print("these roles do not go through the intern claim flow.")
 
 
 if __name__ == "__main__":

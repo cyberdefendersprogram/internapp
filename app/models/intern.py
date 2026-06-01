@@ -54,7 +54,7 @@ class InternEntry:
     def from_row(cls, row: dict) -> "InternEntry":
         """Create InternEntry from a sheet row dictionary."""
         raw_role = str(row.get("role", "")).strip().lower()
-        role = raw_role if raw_role in ("intern", "mentor", "admin") else "intern"
+        role = raw_role if raw_role in ("intern", "mentor", "admin", "sponsor") else "intern"
         return cls(
             intern_id=str(row.get("intern_id", "")),
             full_name=row.get("full_name", ""),

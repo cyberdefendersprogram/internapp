@@ -174,10 +174,16 @@ async def verify_magic_link(request: Request, token: str, response: Response):
         logger.info("Sponsor login: %s (track: %s)", email, track.track_id)
         return _make_resp("sponsor", "", "/sponsor")
 
-    # 4. Email not recognised — send to claim flow
-    claim_token = create_magic_token(email, ttl_minutes=30)
-    logger.info("Email %s not in roster/admin/sponsor — redirecting to claim", email)
-    return RedirectResponse(url=f"/claim?token={claim_token}", status_code=302)
+    # 4. Email not recognised — return error (no claim flow; contact program admin)
+    logger.info("Email %s not registered in roster/admin/sponsor", email)
+    return templates.TemplateResponse(
+        "signin.html",
+        {
+            "request": request,
+            "error": "This email address is not registered in the program. Please contact your program administrator.",
+            "success": None,
+        },
+    )
 
 
 @router.post("/auth/logout")

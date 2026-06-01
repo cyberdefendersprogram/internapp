@@ -4,11 +4,12 @@ import logging
 import math
 from datetime import date, datetime
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app.dependencies import OnboardedIntern, templates
-from app.services.sheets import get_sheets_client
+from app.db.sqlite import get_cached_intern, set_cached_intern
+from app.dependencies import OnboardedIntern, RequiredSession, templates
+from app.services.sheets import SheetsUnavailableError, get_sheets_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,10 +31,34 @@ def compute_week_number(sheets) -> int:
         return 1
 
 
+_ROLE_REDIRECTS = {
+    "admin": "/admin",
+    "mentor": "/admin/applicants",
+    "sponsor": "/sponsor",
+}
+
+
 @router.get("/home", response_class=HTMLResponse)
-async def home(request: Request, intern: OnboardedIntern):
-    """Intern dashboard."""
+async def home(request: Request, session: RequiredSession):
+    """Dashboard — redirects admin/mentor/sponsor; renders intern view."""
+    if session.role in _ROLE_REDIRECTS:
+        return RedirectResponse(url=_ROLE_REDIRECTS[session.role], status_code=302)
+
     sheets = get_sheets_client()
+    intern = get_cached_intern(session.intern_id)
+    if not intern:
+        try:
+            intern = sheets.get_roster_by_id(session.intern_id)
+        except SheetsUnavailableError:
+            intern = get_cached_intern(session.intern_id, max_age_seconds=86400)
+            if not intern:
+                raise HTTPException(status_code=503, detail="Service temporarily unavailable.")
+        if not intern:
+            raise HTTPException(status_code=401, detail="Intern not found")
+        set_cached_intern(intern)
+
+    if not intern.onboarding_completed_at:
+        return RedirectResponse(url="/onboarding", status_code=302)
     track = sheets.get_track_by_id(intern.track_id)
     week_number = compute_week_number(sheets)
 

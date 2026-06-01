@@ -51,6 +51,15 @@ class TestSigninPage:
         assert response.status_code == 302
         assert "/home" in response.headers["location"]
 
+    def test_signin_redirects_mentor_if_logged_in(self, client):
+        """Logged-in mentor is redirected to /admin/applicants."""
+        from app.services.sessions import create_session_token
+
+        token = create_session_token("mentor@example.com", "CDP-2026-M01", "mentor")
+        response = client.get("/", cookies={"session": token}, follow_redirects=False)
+        assert response.status_code == 302
+        assert "/admin/applicants" in response.headers["location"]
+
 
 class TestRequestMagicLink:
     """Tests for magic link request endpoint."""
@@ -180,8 +189,8 @@ class TestVerifyMagicLink:
         assert "session" in response.cookies
 
     @patch("app.routers.auth.get_sheets_client")
-    def test_unclaimed_intern_redirects_to_claim(self, mock_sheets, client):
-        """Unknown email redirects to /claim."""
+    def test_unregistered_email_shows_error(self, mock_sheets, client):
+        """Unknown email shows 'not registered' error on sign-in page."""
         from app.services.tokens import create_magic_token
 
         token = create_magic_token("new@example.com")
@@ -189,8 +198,36 @@ class TestVerifyMagicLink:
         mock_sheets.return_value.get_roster_by_email.return_value = None
 
         response = client.get(f"/auth/verify?token={token}", follow_redirects=False)
+        assert response.status_code == 200
+        assert (
+            "not registered" in response.text.lower()
+            or "program administrator" in response.text.lower()
+        )
+
+    @patch("app.routers.auth.get_sheets_client")
+    def test_mentor_email_redirects_to_applicants(self, mock_sheets, client):
+        """Mentor email redirects to /admin/applicants."""
+        from datetime import datetime
+
+        from app.models.intern import InternEntry
+        from app.services.tokens import create_magic_token
+
+        token = create_magic_token("mentor@example.com")
+
+        mock_entry = InternEntry(
+            intern_id="CDP-2026-M01",
+            full_name="Jones, Pat",
+            preferred_email="mentor@example.com",
+            claimed_at=datetime(2026, 6, 1),
+            role="mentor",
+        )
+        mock_sheets.return_value.get_roster_by_email.return_value = mock_entry
+        mock_sheets.return_value.update_roster.return_value = True
+
+        response = client.get(f"/auth/verify?token={token}", follow_redirects=False)
         assert response.status_code == 302
-        assert "/claim" in response.headers["location"]
+        assert "/admin/applicants" in response.headers["location"]
+        assert "session" in response.cookies
 
 
 class TestLogout:

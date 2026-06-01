@@ -24,7 +24,7 @@ A lightweight intern tracking portal for ~25 interns across 5 cybersecurity proj
 | Principle | Description |
 |-----------|-------------|
 | Sheets-first | Google Sheets is the primary database for all program data |
-| Role-aware | Three auth tiers: intern, admin, sponsor |
+| Role-aware | Four auth tiers: intern, mentor, admin, sponsor |
 | Human-readable | Coordinator can inspect all state manually in Sheets |
 | Low friction | Magic link auth, no passwords |
 | Brand-consistent | Matches Cyber Defenders Program visual identity |
@@ -177,13 +177,14 @@ server {
 
 ### 7.1 Role Model
 
-| Role | How Identified | Access |
-|------|---------------|--------|
-| `admin` | Email in `ADMIN_EMAILS` env var | Full access to all data and admin routes |
-| `sponsor` | Email matches a `sponsor_email` in Tracks sheet | Read own track's interns; submit feedback |
-| `intern` | Email claimed against a Roster row | Own check-ins, deliverables, profile |
+| Role | How Identified | Landing Page | Access |
+|------|---------------|-------------|--------|
+| `admin` | Email in `ADMIN_EMAILS` env var, or Roster row with `role=admin` | `/admin` | Full access to all data and admin routes |
+| `mentor` | Roster row with `role=mentor` and `preferred_email` set | `/admin/applicants` | Applicant review; read own track's interns |
+| `sponsor` | Roster row with `role=sponsor`, or email matches `sponsor_email` in Tracks sheet | `/sponsor` | Read own track's interns; submit feedback |
+| `intern` | Roster row with `role=intern` and a claimed `preferred_email` | `/home` | Own check-ins, deliverables, profile |
 
-Role is determined at login time and stored in the JWT payload. Admins and sponsors do not go through the claim flow.
+Role is determined at login time and stored in the JWT payload. Admin, mentor, and sponsor rows must have `preferred_email` pre-populated by an admin in the Roster sheet — these roles never go through the intern claim flow.
 
 ### 7.2 Authentication Flow
 
@@ -196,18 +197,16 @@ Magic link sent (15 min TTL)
     ▼
 User clicks link
     │
-    ├── Admin email (ADMIN_EMAILS) → session with role=admin → /admin
-    ├── Sponsor email (Tracks sheet) → session with role=sponsor → /sponsor
-    ├── Intern email already claimed → session with role=intern → /home
-    └── Email not found
-            │
-            ▼
-        Enter intern_id
-            │
-            ▼
-        Bind email → onboarding → /home
+    ├── Admin email (ADMIN_EMAILS env) → role=admin → /admin
+    ├── Roster row role=admin (preferred_email match) → role=admin → /admin
+    ├── Roster row role=mentor (preferred_email match) → role=mentor → /admin/applicants
+    ├── Roster row role=sponsor (preferred_email match) → role=sponsor → /sponsor
+    ├── Tracks sheet sponsor_email match → role=sponsor → /sponsor
+    ├── Roster row role=intern, already claimed → role=intern → /home (or /onboarding)
+    └── Email not recognised → sign-in page with "not registered" error
 
-Unknown emails not in any list get a "not enrolled" message.
+Admin, mentor, and sponsor emails must be pre-populated in the Roster (preferred_email)
+or Tracks sheet (sponsor_email) by a program admin before first login.
 ```
 
 ### 7.3 Session Management
@@ -245,14 +244,15 @@ Single spreadsheet with these tabs:
 
 ### 8.1 `Roster`
 
-One row per intern. Admin pre-populates `intern_id`, `full_name`, `track_id`. Remaining fields filled by interns during onboarding.
+One row per user (intern, mentor, admin, or sponsor). Admin pre-populates all fields. For interns, `preferred_email` is left blank and filled on first login; for all other roles, `preferred_email` must be pre-set by admin.
 
 | Column | Type | Source |
 |--------|------|--------|
 | `intern_id` | string | Admin (e.g., `CDP-2026-001`) |
 | `full_name` | string | Admin (e.g., `Bhandari, Vaibhav`) |
 | `track_id` | string | Admin (e.g., `track-1`) |
-| `preferred_email` | string | Intern (set on claim, immutable after) |
+| `role` | string | Admin — `intern` (default), `mentor`, `admin`, or `sponsor` |
+| `preferred_email` | string | **Interns**: blank until claimed. **Mentor/admin/sponsor**: pre-set by admin. |
 | `preferred_name` | string | Intern (optional) |
 | `school` | string | Intern |
 | `year` | string | Intern (`Freshman`, `Sophomore`, etc.) |
@@ -265,7 +265,9 @@ One row per intern. Admin pre-populates `intern_id`, `full_name`, `track_id`. Re
 
 **Constraints**:
 - `intern_id` must be unique
-- `preferred_email` blank until claimed, immutable after
+- `role` must be one of: `intern`, `mentor`, `admin`, `sponsor` (defaults to `intern` if blank/invalid)
+- For `intern` rows: `preferred_email` blank until claimed, immutable after
+- For `mentor`/`admin`/`sponsor` rows: `preferred_email` must be set before first login
 - `track_id` must match a `track_id` in the `Tracks` sheet
 
 ### 8.2 `Tracks`
@@ -503,14 +505,12 @@ Admin sees summary: N sent, M failed
 | POST | `/auth/request-link` | Send magic link |
 | GET | `/auth/verify` | Validate token, create session, redirect by role |
 | POST | `/auth/logout` | Clear session |
-| GET | `/claim` | Claim form (intern_id entry) |
-| POST | `/claim` | Process claim, bind email |
 
 ### 12.3 Intern
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/home` | Dashboard: track info, check-in status, deliverable count |
+| GET | `/home` | Dashboard (intern view); admin/mentor/sponsor are redirected to their own pages |
 | GET | `/onboarding` | Onboarding form |
 | POST | `/onboarding` | Submit onboarding |
 | GET | `/checkin` | Current week check-in form (or past submissions if already done) |
@@ -627,9 +627,8 @@ The app matches the **Cyber Defenders Program** visual identity used on `cyberde
 |------|------|--------|
 | `/` | public | Sign-in: CDP-branded hero, email input |
 | `/program` | public | Track + intern + deliverable dashboard |
-| `/claim` | unauthenticated | intern_id entry form |
 | `/onboarding` | intern | Profile completion form |
-| `/home` | intern | Dashboard: track card, week status, deliverable list |
+| `/home` | intern | Dashboard: track card, week status, deliverable list (admin/mentor/sponsor are redirected) |
 | `/checkin` | intern | Weekly check-in form |
 | `/deliverables` | intern | Deliverable list + submit form |
 | `/me` | intern | Profile view/edit |

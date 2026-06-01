@@ -129,6 +129,24 @@ class TestInternEntry:
         assert intern.preferred_email is None
         assert intern.school is None
 
+    def test_from_row_sponsor_role_valid(self):
+        """sponsor role is accepted and not overridden."""
+        row = {"intern_id": "CDP-SP-01", "full_name": "Sponsor, Alice", "role": "sponsor"}
+        intern = InternEntry.from_row(row)
+        assert intern.role == "sponsor"
+
+    def test_from_row_mentor_role_valid(self):
+        """mentor role is accepted and not overridden."""
+        row = {"intern_id": "CDP-M-01", "full_name": "Mentor, Bob", "role": "mentor"}
+        intern = InternEntry.from_row(row)
+        assert intern.role == "mentor"
+
+    def test_from_row_unknown_role_defaults_to_intern(self):
+        """Unknown role values fall back to intern."""
+        row = {"intern_id": "CDP-001", "full_name": "Test", "role": "superuser"}
+        intern = InternEntry.from_row(row)
+        assert intern.role == "intern"
+
 
 class TestTrackEntry:
     """Tests for TrackEntry model."""

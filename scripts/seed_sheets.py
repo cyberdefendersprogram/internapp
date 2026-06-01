@@ -225,9 +225,62 @@ def create_structure(spreadsheet):
     roster_ws = spreadsheet.worksheet("Roster")
     existing_roster = roster_ws.get_all_records()
     if not existing_roster:
-        print("\n[Roster] Adding sample interns...")
+        print("\n[Roster] Adding sample interns, mentors, and sponsors...")
         # intern_id, full_name, track_id, role, preferred_email, preferred_name, school, year, linkedin, github, bio, claimed_at, onboarding_completed_at, last_login_at
+        # NOTE: mentor/admin/sponsor rows must have preferred_email pre-set by admin —
+        # they do not go through the intern claim flow.
         sample_roster = [
+            # Mentors (preferred_email pre-populated; no claim needed)
+            [
+                "CDP-2026-M01",
+                "Mentor, Jane",
+                "track-1",
+                "mentor",
+                "jane@company.com",
+                "Jane",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            [
+                "CDP-2026-M02",
+                "Mentor, John",
+                "track-2",
+                "mentor",
+                "john@company.com",
+                "John",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            # Sponsors (preferred_email pre-populated; no claim needed)
+            [
+                "CDP-2026-SP01",
+                "Sponsor, Alice",
+                "track-1",
+                "sponsor",
+                "alice@company.com",
+                "Alice",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            # Interns (preferred_email blank until intern claims their account)
             [
                 "CDP-2026-001",
                 "Doe, Jane",
