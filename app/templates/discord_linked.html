@@ -16,7 +16,19 @@
     <div class="container" style="max-width:480px;margin:0 auto;">
       <div class="box" style="border-radius:10px;text-align:center;padding:2.5rem 2rem;">
 
-        {% if success %}
+        {% if already_linked %}
+        <p style="font-size:3rem;margin-bottom:1rem;">🔗</p>
+        <h1 style="font-family:'Roboto Mono',monospace;font-size:1.3rem;font-weight:700;color:#062F49;margin-bottom:.75rem;">
+          Already linked
+        </h1>
+        <p style="color:#555;line-height:1.7;margin-bottom:1.5rem;">
+          Your Discord account is already connected to this intern profile.<br>
+          You can close this window and return to Discord.
+        </p>
+        <p style="font-size:13px;color:#aaa;">
+          Commands like <code>/tasks</code> are already available to you.
+        </p>
+        {% elif success %}
         <p style="font-size:3rem;margin-bottom:1rem;">✅</p>
         <h1 style="font-family:'Roboto Mono',monospace;font-size:1.3rem;font-weight:700;color:#062F49;margin-bottom:.75rem;">
           Discord account linked

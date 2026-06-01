@@ -198,10 +198,15 @@ async def discord_link(request: Request, token: str, discord_id: str):
     then renders a simple success/error page the user sees in their browser.
     """
 
-    def _discord_response(success: bool, error: str | None = None):
+    def _discord_response(success: bool, error: str | None = None, already_linked: bool = False):
         return templates.TemplateResponse(
             "discord_linked.html",
-            {"request": request, "success": success, "error": error},
+            {
+                "request": request,
+                "success": success,
+                "error": error,
+                "already_linked": already_linked,
+            },
         )
 
     email = validate_magic_token(token)
@@ -215,8 +220,11 @@ async def discord_link(request: Request, token: str, discord_id: str):
     if not roster_entry:
         return _discord_response(False, "This email is not registered in the program.")
 
-    success = sheets.link_discord_id(roster_entry.intern_id, discord_id)
-    if not success:
+    if roster_entry.discord_id and roster_entry.discord_id == discord_id:
+        return _discord_response(True, already_linked=True)
+
+    ok = sheets.link_discord_id(roster_entry.intern_id, discord_id)
+    if not ok:
         return _discord_response(False, "Failed to link your Discord account. Please try again.")
 
     logger.info("Linked Discord ID %s to intern %s (%s)", discord_id, roster_entry.intern_id, email)

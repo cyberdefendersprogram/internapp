@@ -294,6 +294,10 @@ async def bot_discord_link(
     if not roster_entry:
         raise HTTPException(status_code=404, detail="Email not registered in program")
 
+    if roster_entry.discord_id and roster_entry.discord_id == discord_id:
+        logger.info("Discord link skipped — already linked: %s / %s", email, discord_id)
+        return {"sent": False, "already_linked": True, "email": email}
+
     token = create_magic_token(email)
     link_url = f"{settings.base_url}/auth/discord-link?token={token}&discord_id={discord_id}"
 
