@@ -163,14 +163,21 @@ the `BOT_API_KEY` bearer token (provided separately in environment config).
 Key endpoints you use:
 
 ```
-GET  /api/tasks               → fetch tasks for the linked user
-POST /api/tasks               → create a task
-PATCH /api/tasks/{task_id}    → update task status
-GET  /api/tasks/team          → track-level task view (mentor/admin)
-GET  /api/tasks/overdue       → overdue tasks
-GET  /api/tasks/summary       → week × track completion matrix
-POST /auth/discord-link       → complete identity linking
+GET   /api/tasks                  → fetch tasks for the linked user (?discord_id=<snowflake>)
+POST  /api/tasks                  → create a task
+PATCH /api/tasks/{task_id}        → update task status
+GET   /api/tasks/team             → track-level task view (mentor/admin)
+GET   /api/tasks/overdue          → overdue tasks
+GET   /api/tasks/summary          → week × track completion matrix
+POST  /api/bot/discord-link       → send magic-link email to initiate identity linking
+                                    body: {"email": "...", "discord_id": "..."}
 ```
+
+**Linking flow detail:**
+- Bot calls `POST /api/bot/discord-link` with the user's program email and their Discord snowflake ID
+- The API sends a magic-link email to that address
+- User clicks the link in their browser — that `GET /auth/discord-link?token=...&discord_id=...` call is handled by the browser, not the bot
+- On success, discord_id is written to the Roster sheet and all future `/api/bot/*` calls resolve via discord_id
 
 If the API returns a non-200 response, tell the user:
 > "Something went wrong on my end. Try again in a moment, or visit the web portal
