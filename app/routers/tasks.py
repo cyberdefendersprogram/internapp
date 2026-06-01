@@ -271,6 +271,42 @@ async def bot_create_task(
     return {"task": _task_to_dict(task)}
 
 
+@bot_router.post("/discord-link")
+async def bot_discord_link(
+    _key: BotApiKey,
+    email: str = Body(...),
+    discord_id: str = Body(...),
+):
+    """
+    Bot: initiate Discord identity linking.
+
+    Looks up the email in the roster, creates a magic token, and sends the user
+    an email containing the discord-link URL. The user clicks it to complete
+    linking their Discord account to their roster entry.
+    """
+    from app.services.tokens import create_magic_token
+    from app.services.email import send_magic_link_email
+
+    email = email.strip().lower()
+    sheets = get_sheets_client()
+
+    roster_entry = sheets.get_roster_by_email(email)
+    if not roster_entry:
+        raise HTTPException(status_code=404, detail="Email not registered in program")
+
+    token = create_magic_token(email)
+    from app.config import settings
+    link_url = f"{settings.base_url}/auth/discord-link?token={token}&discord_id={discord_id}"
+
+    result = await send_magic_link_email(email, link_url)
+    if not result.success:
+        logger.error("Failed to send discord-link email to %s: %s", email, result.error)
+        raise HTTPException(status_code=500, detail="Failed to send linking email")
+
+    logger.info("Discord link email sent to %s for discord_id %s", email, discord_id)
+    return {"sent": True, "email": email}
+
+
 @bot_router.patch("/tasks/{task_id}")
 async def bot_update_task(
     _key: BotApiKey,
