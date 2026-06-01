@@ -16,26 +16,34 @@ router = APIRouter(prefix="/sponsor")
 
 @router.get("", response_class=HTMLResponse)
 async def sponsor_home(request: Request, session: SponsorSession):
-    """Show sponsor's track interns with check-in status."""
+    """Show sponsor's track(s) interns with check-in status."""
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
 
-    # Get sponsor's track
-    track = sheets.get_track_by_sponsor_email(session.email)
-    if not track and session.role == "admin":
-        # Admins can view sponsor view for any track; use all tracks
-        tracks = sheets.get_all_tracks()
-        all_interns = sheets.get_all_roster()
-        # Build data for all tracks
+    all_interns = sheets.get_all_roster()
+
+    def _build_track_data(tracks):
         track_data = []
         for t in tracks:
-            interns = [i for i in all_interns if i.track_id == t.track_id]
+            interns = [i for i in all_interns if t.track_id in i.track_ids]
             intern_rows = []
             for intern in interns:
                 checkins = sheets.get_checkins_for_intern(intern.intern_id)
                 checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
-                intern_rows.append({"intern": intern, "checked_in": checked_in})
+                deliverable_count = len(sheets.get_deliverables_for_intern(intern.intern_id))
+                intern_rows.append(
+                    {
+                        "intern": intern,
+                        "checked_in": checked_in,
+                        "deliverable_count": deliverable_count,
+                    }
+                )
             track_data.append({"track": t, "interns": intern_rows})
+        return track_data
+
+    if session.role == "admin":
+        tracks = sheets.get_all_tracks()
+        track_data = _build_track_data(tracks)
         return templates.TemplateResponse(
             "sponsor.html",
             {
@@ -47,34 +55,45 @@ async def sponsor_home(request: Request, session: SponsorSession):
             },
         )
 
-    if not track:
+    # Multi-track sponsor support
+    sponsor_tracks = sheets.get_tracks_by_sponsor_email(session.email)
+    if not sponsor_tracks:
         return HTMLResponse("Track not found for your email.", status_code=404)
 
-    all_interns = sheets.get_all_roster()
-    track_interns = [i for i in all_interns if i.track_id == track.track_id]
-
-    intern_rows = []
-    for intern in track_interns:
-        checkins = sheets.get_checkins_for_intern(intern.intern_id)
-        checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
-        deliverable_count = len(sheets.get_deliverables_for_intern(intern.intern_id))
-        intern_rows.append(
+    if len(sponsor_tracks) == 1:
+        # Single-track: show flat intern list view
+        track = sponsor_tracks[0]
+        track_interns = [i for i in all_interns if track.track_id in i.track_ids]
+        intern_rows = []
+        for intern in track_interns:
+            checkins = sheets.get_checkins_for_intern(intern.intern_id)
+            checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
+            deliverable_count = len(sheets.get_deliverables_for_intern(intern.intern_id))
+            intern_rows.append(
+                {"intern": intern, "checked_in": checked_in, "deliverable_count": deliverable_count}
+            )
+        return templates.TemplateResponse(
+            "sponsor.html",
             {
-                "intern": intern,
-                "checked_in": checked_in,
-                "deliverable_count": deliverable_count,
-            }
+                "request": request,
+                "track": track,
+                "track_data": None,
+                "intern_rows": intern_rows,
+                "week_number": week_number,
+                "is_admin_view": False,
+            },
         )
 
+    # Multi-track: show grouped view like admin
+    track_data = _build_track_data(sponsor_tracks)
     return templates.TemplateResponse(
         "sponsor.html",
         {
             "request": request,
-            "track": track,
-            "track_data": None,
-            "intern_rows": intern_rows,
+            "track": None,
+            "track_data": track_data,
             "week_number": week_number,
-            "is_admin_view": False,
+            "is_admin_view": True,
         },
     )
 
@@ -91,8 +110,9 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
 
     # Verify sponsor has access to this intern's track
     if session.role == "sponsor":
-        track = sheets.get_track_by_sponsor_email(session.email)
-        if not track or track.track_id != intern.track_id:
+        sponsor_tracks = sheets.get_tracks_by_sponsor_email(session.email)
+        sponsor_track_ids = {t.track_id for t in sponsor_tracks}
+        if not sponsor_track_ids.intersection(intern.track_ids):
             return HTMLResponse("Access denied.", status_code=403)
 
     track = sheets.get_track_by_id(intern.track_id)
@@ -124,10 +144,14 @@ async def feedback_form(request: Request, session: SponsorSession):
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
 
-    track = sheets.get_track_by_sponsor_email(session.email)
+    sponsor_tracks = sheets.get_tracks_by_sponsor_email(session.email)
+    sponsor_track_ids = {t.track_id for t in sponsor_tracks}
     all_interns = sheets.get_all_roster()
-    if track:
-        interns = [i for i in all_interns if i.track_id == track.track_id and i.is_claimed]
+    track = sponsor_tracks[0] if len(sponsor_tracks) == 1 else None
+    if sponsor_track_ids:
+        interns = [
+            i for i in all_interns if sponsor_track_ids.intersection(i.track_ids) and i.is_claimed
+        ]
     else:
         interns = [i for i in all_interns if i.is_claimed]
 

@@ -16,8 +16,8 @@ class TrackEntry:
 
     @property
     def is_active(self) -> bool:
-        """Check if track is active."""
-        return self.status.lower() == "active"
+        """Check if track is active. Empty status treated as active."""
+        return self.status.lower() in ("active", "")
 
     @classmethod
     def from_row(cls, row: dict) -> "TrackEntry":

@@ -26,6 +26,13 @@ class InternEntry:
     discord_notify: bool = True
 
     @property
+    def track_ids(self) -> list[str]:
+        """Return list of track IDs (supports comma-separated for multi-track roles)."""
+        if not self.track_id:
+            return []
+        return [t.strip() for t in self.track_id.split(",") if t.strip()]
+
+    @property
     def is_claimed(self) -> bool:
         """Check if intern has claimed their account."""
         return self.preferred_email is not None and self.claimed_at is not None

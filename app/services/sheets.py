@@ -142,11 +142,24 @@ class SheetsClient:
         return None
 
     def get_track_by_sponsor_email(self, email: str) -> TrackEntry | None:
-        """Get the track where sponsor_email matches."""
+        """Get the first track where sponsor_email matches (legacy single-track)."""
         for track in self.get_all_tracks():
-            if track.sponsor_email.lower() == email.lower():
+            if track.sponsor_email and track.sponsor_email.lower() == email.lower():
                 return track
         return None
+
+    def get_tracks_by_sponsor_email(self, email: str) -> list[TrackEntry]:
+        """Get all tracks where sponsor_email matches (multi-track sponsors)."""
+        return [
+            t
+            for t in self.get_all_tracks()
+            if t.sponsor_email and t.sponsor_email.lower() == email.lower()
+        ]
+
+    def get_tracks_for_intern_entry(self, entry: "InternEntry") -> list[TrackEntry]:
+        """Return all TrackEntry objects for a roster entry (handles multi-track)."""
+        all_tracks = {t.track_id: t for t in self.get_all_tracks()}
+        return [all_tracks[tid] for tid in entry.track_ids if tid in all_tracks]
 
     # -------------------------------------------------------------------------
     # Roster methods

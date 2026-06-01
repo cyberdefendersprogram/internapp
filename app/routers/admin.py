@@ -63,7 +63,7 @@ async def admin_home(request: Request, session: AdminSession):
             }
         )
 
-    # Group intern rows by track
+    # Group intern rows by track (single track_id only for interns)
     track_groups = {}
     for row in intern_rows:
         tid = row["intern"].track_id or "unassigned"
@@ -72,8 +72,20 @@ async def admin_home(request: Request, session: AdminSession):
                 "track": row["track"] or tracks.get(tid),
                 "track_id": tid,
                 "rows": [],
+                "mentors": [],
+                "sponsors": [],
             }
         track_groups[tid]["rows"].append(row)
+
+    # Attach mentors and sponsors to each of their tracks (multi-track aware)
+    for m in mentors:
+        for tid in (m.track_ids or [m.track_id]) if m.track_id else []:
+            if tid and tid in track_groups:
+                track_groups[tid]["mentors"].append(m)
+    for s in sponsors:
+        for tid in (s.track_ids or [s.track_id]) if s.track_id else []:
+            if tid and tid in track_groups:
+                track_groups[tid]["sponsors"].append(s)
 
     return templates.TemplateResponse(
         "admin.html",
