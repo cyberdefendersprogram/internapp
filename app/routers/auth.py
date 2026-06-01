@@ -197,49 +197,30 @@ async def discord_link(request: Request, token: str, discord_id: str):
     Validates the token (proves email ownership), writes discord_id to Roster,
     then renders a simple success/error page the user sees in their browser.
     """
+
+    def _discord_response(success: bool, error: str | None = None):
+        return templates.TemplateResponse(
+            "discord_linked.html",
+            {"request": request, "success": success, "error": error},
+        )
+
     email = validate_magic_token(token)
     if not email:
-        return templates.TemplateResponse(
-            "signin.html",
-            {
-                "request": request,
-                "error": "This link is invalid or has expired. Please run /link again in Discord.",
-                "success": None,
-            },
+        return _discord_response(
+            False, "This link is invalid or has expired. Run /link again in Discord."
         )
 
     sheets = get_sheets_client()
     roster_entry = sheets.get_roster_by_email(email)
     if not roster_entry:
-        return templates.TemplateResponse(
-            "signin.html",
-            {
-                "request": request,
-                "error": "This email is not registered in the program.",
-                "success": None,
-            },
-        )
+        return _discord_response(False, "This email is not registered in the program.")
 
     success = sheets.link_discord_id(roster_entry.intern_id, discord_id)
     if not success:
-        return templates.TemplateResponse(
-            "signin.html",
-            {
-                "request": request,
-                "error": "Failed to link your Discord account. Please try again.",
-                "success": None,
-            },
-        )
+        return _discord_response(False, "Failed to link your Discord account. Please try again.")
 
     logger.info("Linked Discord ID %s to intern %s (%s)", discord_id, roster_entry.intern_id, email)
-    return templates.TemplateResponse(
-        "signin.html",
-        {
-            "request": request,
-            "error": None,
-            "success": "Your Discord account is now linked. You can close this window and return to Discord.",
-        },
-    )
+    return _discord_response(True)
 
 
 @router.post("/auth/logout")
