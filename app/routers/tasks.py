@@ -6,9 +6,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query
 
+from app.config import settings
 from app.dependencies import AdminOrMentorSession, BotApiKey, RequiredSession
 from app.models.task import TaskEntry
+from app.services.email import send_magic_link_email
 from app.services.sheets import get_sheets_client
+from app.services.tokens import create_magic_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -284,9 +287,6 @@ async def bot_discord_link(
     an email containing the discord-link URL. The user clicks it to complete
     linking their Discord account to their roster entry.
     """
-    from app.services.tokens import create_magic_token
-    from app.services.email import send_magic_link_email
-
     email = email.strip().lower()
     sheets = get_sheets_client()
 
@@ -295,7 +295,6 @@ async def bot_discord_link(
         raise HTTPException(status_code=404, detail="Email not registered in program")
 
     token = create_magic_token(email)
-    from app.config import settings
     link_url = f"{settings.base_url}/auth/discord-link?token={token}&discord_id={discord_id}"
 
     result = await send_magic_link_email(email, link_url)
