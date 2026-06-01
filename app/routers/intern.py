@@ -155,6 +155,9 @@ async def checkin_submit(
 
     success = sheets.append_checkin(data)
 
+    if success:
+        sheets.complete_linked_tasks(intern.intern_id, week_number, "checkin")
+
     if not success:
         return templates.TemplateResponse(
             "checkin.html",
@@ -218,6 +221,9 @@ async def deliverables_submit(
     }
 
     success = sheets.append_deliverable(data)
+
+    if success:
+        sheets.complete_linked_tasks(intern.intern_id, week_number, "deliverable")
 
     if not success:
         current_deliverables = sheets.get_deliverables_for_intern(intern.intern_id)

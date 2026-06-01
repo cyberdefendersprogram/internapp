@@ -87,6 +87,8 @@ def create_structure(spreadsheet):
             "claimed_at",
             "onboarding_completed_at",
             "last_login_at",
+            "discord_id",
+            "discord_notify",
         ],
         "Tracks": [
             "track_id",
@@ -142,6 +144,35 @@ def create_structure(spreadsheet):
         "Config": [
             "key",
             "value",
+        ],
+        "Tasks": [
+            "task_id",
+            "title",
+            "description",
+            "task_type",
+            "assigned_to",
+            "assigned_by",
+            "track_id",
+            "week_number",
+            "due_week",
+            "status",
+            "priority",
+            "linked_feature",
+            "source",
+            "skip_reason",
+            "created_at",
+            "completed_at",
+        ],
+        "Task_Templates": [
+            "template_id",
+            "title",
+            "description",
+            "task_type",
+            "assigned_to",
+            "week_number",
+            "due_week",
+            "priority",
+            "linked_feature",
         ],
     }
 
@@ -226,7 +257,9 @@ def create_structure(spreadsheet):
     existing_roster = roster_ws.get_all_records()
     if not existing_roster:
         print("\n[Roster] Adding sample interns, mentors, and sponsors...")
-        # intern_id, full_name, track_id, role, preferred_email, preferred_name, school, year, linkedin, github, bio, claimed_at, onboarding_completed_at, last_login_at
+        # intern_id, full_name, track_id, role, preferred_email, preferred_name, school, year,
+        # linkedin, github, bio, claimed_at, onboarding_completed_at, last_login_at,
+        # discord_id, discord_notify
         # NOTE: mentor/admin/sponsor rows must have preferred_email pre-set by admin —
         # they do not go through the intern claim flow.
         sample_roster = [
@@ -246,6 +279,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             [
                 "CDP-2026-M02",
@@ -262,6 +297,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             # Sponsors (preferred_email pre-populated; no claim needed)
             [
@@ -279,6 +316,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             # Interns (preferred_email blank until intern claims their account)
             [
@@ -296,6 +335,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             [
                 "CDP-2026-002",
@@ -312,6 +353,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             [
                 "CDP-2026-003",
@@ -328,6 +371,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             [
                 "CDP-2026-004",
@@ -344,6 +389,8 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
             [
                 "CDP-2026-005",
@@ -360,11 +407,220 @@ def create_structure(spreadsheet):
                 "",
                 "",
                 "",
+                "",
+                "true",
             ],
         ]
         roster_ws.append_rows(sample_roster, value_input_option="RAW")
 
     print("\nDone! Structure created successfully.")
+
+
+def migrate_roster_discord_columns(spreadsheet):
+    """Add discord_id and discord_notify columns to Roster if missing."""
+    roster_ws = spreadsheet.worksheet("Roster")
+    headers = roster_ws.row_values(1)
+    added = []
+
+    if "discord_id" not in headers:
+        next_col = len(headers) + 1
+        roster_ws.update_cell(1, next_col, "discord_id")
+        headers.append("discord_id")
+        added.append("discord_id")
+
+    if "discord_notify" not in headers:
+        next_col = len(headers) + 1
+        roster_ws.update_cell(1, next_col, "discord_notify")
+        # Default all existing rows to true
+        records = roster_ws.get_all_records()
+        col = len(roster_ws.row_values(1))
+        for idx in range(len(records)):
+            roster_ws.update_cell(idx + 2, col, "true")
+        added.append("discord_notify")
+
+    if added:
+        print(f"  Added Roster columns: {added}")
+    else:
+        print("  Roster discord columns already present.")
+
+
+def seed_tasks(spreadsheet, target_email: str = "vaibhavb@gmail.com"):
+    """Seed sample Task_Templates and a test task for the given email."""
+    import uuid
+    from datetime import datetime
+
+    # Seed Task_Templates if empty
+    templates_ws = spreadsheet.worksheet("Task_Templates")
+    existing = templates_ws.get_all_records()
+    if not existing:
+        print("\n[Task_Templates] Adding default 6-week task templates...")
+        # template_id, title, description, task_type, assigned_to, week_number, due_week, priority, linked_feature
+        templates = [
+            [
+                "tmpl-001",
+                "Complete your profile",
+                "Fill out all profile fields.",
+                "system",
+                "all",
+                1,
+                1,
+                "normal",
+                "onboarding",
+            ],
+            [
+                "tmpl-002",
+                "Submit Week 1 check-in",
+                "Submit your first weekly check-in.",
+                "system",
+                "all",
+                1,
+                1,
+                "normal",
+                "checkin",
+            ],
+            [
+                "tmpl-003",
+                "Introduce yourself in #general",
+                "Post a brief intro in the Discord #general channel.",
+                "system",
+                "all",
+                1,
+                1,
+                "normal",
+                "",
+            ],
+            [
+                "tmpl-004",
+                "Join your track channel on Discord",
+                "Find and join your track channel.",
+                "system",
+                "all",
+                1,
+                1,
+                "normal",
+                "",
+            ],
+            ["tmpl-005", "Submit Week 2 check-in", "", "system", "all", 2, 2, "normal", "checkin"],
+            [
+                "tmpl-006",
+                "Schedule 1:1 with mentor",
+                "Reach out and schedule your first 1:1.",
+                "system",
+                "all",
+                2,
+                2,
+                "normal",
+                "",
+            ],
+            ["tmpl-007", "Submit Week 3 check-in", "", "system", "all", 3, 3, "normal", "checkin"],
+            [
+                "tmpl-008",
+                "Submit mid-program deliverable",
+                "Submit your Week 3 deliverable on the portal.",
+                "system",
+                "all",
+                3,
+                3,
+                "high",
+                "deliverable",
+            ],
+            ["tmpl-009", "Submit Week 4 check-in", "", "system", "all", 4, 4, "normal", "checkin"],
+            [
+                "tmpl-010",
+                "Peer review another intern's deliverable",
+                "Review and give feedback on a teammate's Week 3 deliverable.",
+                "system",
+                "all",
+                4,
+                4,
+                "normal",
+                "",
+            ],
+            ["tmpl-011", "Submit Week 5 check-in", "", "system", "all", 5, 5, "normal", "checkin"],
+            [
+                "tmpl-012",
+                "Draft final deliverable outline",
+                "Submit a draft or outline of your final deliverable.",
+                "system",
+                "all",
+                5,
+                5,
+                "normal",
+                "deliverable",
+            ],
+            ["tmpl-013", "Submit Week 6 check-in", "", "system", "all", 6, 6, "normal", "checkin"],
+            [
+                "tmpl-014",
+                "Submit final deliverable",
+                "Submit your completed final deliverable.",
+                "system",
+                "all",
+                6,
+                6,
+                "high",
+                "deliverable",
+            ],
+            [
+                "tmpl-015",
+                "Complete program exit survey",
+                "Fill out the end-of-program survey.",
+                "system",
+                "all",
+                6,
+                6,
+                "normal",
+                "",
+            ],
+        ]
+        templates_ws.append_rows(templates, value_input_option="RAW")
+        print(f"  Added {len(templates)} templates.")
+
+    # Seed a test task for the target email
+    tasks_ws = spreadsheet.worksheet("Tasks")
+    roster_ws = spreadsheet.worksheet("Roster")
+    roster_records = roster_ws.get_all_records()
+
+    intern_id = None
+    for r in roster_records:
+        if str(r.get("preferred_email", "")).lower() == target_email.lower():
+            intern_id = str(r.get("intern_id"))
+            break
+
+    if not intern_id:
+        print(f"\n[Tasks] No roster entry found for {target_email} — skipping test task.")
+        print("  Tip: Make sure the email is in the Roster sheet with preferred_email set.")
+        return
+
+    # Check if test task already exists
+    existing_tasks = tasks_ws.get_all_records()
+    for t in existing_tasks:
+        if str(t.get("assigned_to")) == intern_id and t.get("title") == "Test the tasks feature":
+            print(f"\n[Tasks] Test task already exists for {target_email} ({intern_id})")
+            return
+
+    task_headers = tasks_ws.row_values(1)
+    now = datetime.utcnow().isoformat()
+    task_data = {
+        "task_id": str(uuid.uuid4())[:8],
+        "title": "Test the tasks feature",
+        "description": "Run /tasks in Discord or visit /tasks on the web portal to verify the tasks system is working.",
+        "task_type": "assigned",
+        "assigned_to": intern_id,
+        "assigned_by": "system",
+        "track_id": "",
+        "week_number": 1,
+        "due_week": 1,
+        "status": "todo",
+        "priority": "high",
+        "linked_feature": "",
+        "source": "system",
+        "skip_reason": "",
+        "created_at": now,
+        "completed_at": "",
+    }
+    row = [task_data.get(h, "") for h in task_headers]
+    tasks_ws.append_row(row, value_input_option="RAW")
+    print(f"\n[Tasks] Created test task for {target_email} ({intern_id}): {task_data['task_id']}")
 
 
 def main():
@@ -374,9 +630,24 @@ def main():
         action="store_true",
         help="Create all tabs with headers and sample data",
     )
+    parser.add_argument(
+        "--seed-tasks",
+        action="store_true",
+        help="Seed Task_Templates and a test task for --email",
+    )
+    parser.add_argument(
+        "--migrate-discord",
+        action="store_true",
+        help="Add discord_id and discord_notify columns to Roster",
+    )
+    parser.add_argument(
+        "--email",
+        default="vaibhavb@gmail.com",
+        help="Email address to target for test task seeding (default: vaibhavb@gmail.com)",
+    )
     args = parser.parse_args()
 
-    if not args.create_structure:
+    if not (args.create_structure or args.seed_tasks or args.migrate_discord):
         parser.print_help()
         sys.exit(0)
 
@@ -390,7 +661,15 @@ def main():
     spreadsheet = client.open_by_key(sheets_id)
     print(f"Opened: {spreadsheet.title}")
 
-    create_structure(spreadsheet)
+    if args.create_structure:
+        create_structure(spreadsheet)
+
+    if args.migrate_discord:
+        print("\n[Roster] Migrating discord columns...")
+        migrate_roster_discord_columns(spreadsheet)
+
+    if args.seed_tasks:
+        seed_tasks(spreadsheet, target_email=args.email)
 
 
 if __name__ == "__main__":

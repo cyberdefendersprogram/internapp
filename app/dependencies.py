@@ -4,9 +4,10 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from fastapi.templating import Jinja2Templates
 
+from app.config import settings
 from app.db.sqlite import get_cached_intern, set_cached_intern
 from app.models.intern import InternEntry
 from app.services.sessions import COOKIE_NAME, SessionData, verify_session_token
@@ -137,6 +138,27 @@ def require_intern(
     return session
 
 
+def require_bot_api_key(
+    x_api_key: Annotated[str | None, Header(alias="x-api-key")] = None,
+    authorization: Annotated[str | None, Header()] = None,
+) -> str:
+    """Require a valid BOT_API_KEY. Accepts X-Api-Key header or Bearer token."""
+    if not settings.bot_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bot API not configured",
+        )
+    token = x_api_key or ""
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    if token != settings.bot_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+        )
+    return token
+
+
 # Type aliases for cleaner dependency injection
 CurrentSession = Annotated[SessionData | None, Depends(get_current_session)]
 RequiredSession = Annotated[SessionData, Depends(require_session)]
@@ -146,3 +168,4 @@ AdminSession = Annotated[SessionData, Depends(require_admin)]
 AdminOrMentorSession = Annotated[SessionData, Depends(require_admin_or_mentor)]
 SponsorSession = Annotated[SessionData, Depends(require_sponsor)]
 InternSession = Annotated[SessionData, Depends(require_intern)]
+BotApiKey = Annotated[str, Depends(require_bot_api_key)]

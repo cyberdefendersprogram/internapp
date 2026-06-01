@@ -22,6 +22,8 @@ class InternEntry:
     claimed_at: datetime | None = None
     onboarding_completed_at: datetime | None = None
     last_login_at: datetime | None = None
+    discord_id: str | None = None
+    discord_notify: bool = True
 
     @property
     def is_claimed(self) -> bool:
@@ -70,6 +72,8 @@ class InternEntry:
             claimed_at=_parse_datetime(row.get("claimed_at")),
             onboarding_completed_at=_parse_datetime(row.get("onboarding_completed_at")),
             last_login_at=_parse_datetime(row.get("last_login_at")),
+            discord_id=row.get("discord_id") or None,
+            discord_notify=str(row.get("discord_notify", "true")).lower() not in ("false", "0", ""),
         )
 
     def get_empty_profile_fields(self) -> list[str]:

@@ -186,6 +186,62 @@ async def verify_magic_link(request: Request, token: str, response: Response):
     )
 
 
+@router.get("/auth/discord-link")
+async def discord_link(request: Request, token: str, discord_id: str):
+    """
+    Complete Discord identity linking.
+
+    The bot sends the user here after they request /link:
+      /auth/discord-link?token=<magic_token>&discord_id=<snowflake>
+
+    Validates the token (proves email ownership), writes discord_id to Roster,
+    then renders a simple success/error page the user sees in their browser.
+    """
+    email = validate_magic_token(token)
+    if not email:
+        return templates.TemplateResponse(
+            "signin.html",
+            {
+                "request": request,
+                "error": "This link is invalid or has expired. Please run /link again in Discord.",
+                "success": None,
+            },
+        )
+
+    sheets = get_sheets_client()
+    roster_entry = sheets.get_roster_by_email(email)
+    if not roster_entry:
+        return templates.TemplateResponse(
+            "signin.html",
+            {
+                "request": request,
+                "error": "This email is not registered in the program.",
+                "success": None,
+            },
+        )
+
+    success = sheets.link_discord_id(roster_entry.intern_id, discord_id)
+    if not success:
+        return templates.TemplateResponse(
+            "signin.html",
+            {
+                "request": request,
+                "error": "Failed to link your Discord account. Please try again.",
+                "success": None,
+            },
+        )
+
+    logger.info("Linked Discord ID %s to intern %s (%s)", discord_id, roster_entry.intern_id, email)
+    return templates.TemplateResponse(
+        "signin.html",
+        {
+            "request": request,
+            "error": None,
+            "success": "Your Discord account is now linked. You can close this window and return to Discord.",
+        },
+    )
+
+
 @router.post("/auth/logout")
 async def logout(request: Request):
     """Log out the current user."""

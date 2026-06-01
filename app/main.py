@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.db.sqlite import init_db
 from app.routers import admin, applicants, auth, claim, health, intern, onboarding, program, sponsor
+from app.routers.tasks import bot_router
+from app.routers.tasks import router as tasks_router
 from app.services.sessions import COOKIE_NAME
 
 # Configure logging
@@ -52,6 +54,8 @@ app.include_router(sponsor.router)
 app.include_router(admin.router)
 app.include_router(applicants.router)
 app.include_router(program.router)
+app.include_router(tasks_router)
+app.include_router(bot_router)
 
 
 @app.exception_handler(HTTPException)
