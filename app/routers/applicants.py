@@ -78,7 +78,7 @@ async def applicant_interview(request: Request, row_index: int, session: AdminOr
     ]
 
     tracks = sheets.get_all_tracks() if session.role == "admin" else []
-    next_intern_id = sheets._next_intern_id() if session.role == "admin" else ""
+    next_intern_id = sheets._next_intern_id(role="intern") if session.role == "admin" else ""
 
     flash = request.query_params.get("flash", "")
     return templates.TemplateResponse(

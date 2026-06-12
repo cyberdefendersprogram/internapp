@@ -512,24 +512,30 @@ class SheetsClient:
             logger.error("Failed to save decision for row %s: %s", row_index, e)
             return False
 
-    def _next_intern_id(self) -> str:
-        """Generate the next sequential CDP-YYYY-NNN intern_id from the Roster."""
+    # Role prefix map: role → letter used in ID (e.g. "intern" → "I")
+    _ROLE_PREFIX = {"intern": "I", "mentor": "M", "sponsor": "S", "admin": "A"}
+
+    def _next_intern_id(self, role: str = "intern") -> str:
+        """Generate the next sequential CDP-YYYY-X## id for the given role."""
+        import re
+
+        prefix = self._ROLE_PREFIX.get(role, "I")
+        pattern = re.compile(rf"^CDP-\d{{4}}-{prefix}(\d+)$")
         try:
             worksheet = self._get_worksheet("Roster")
             records = worksheet.get_all_records()
             max_n = 0
             for r in records:
-                iid = str(r.get("intern_id", ""))
-                parts = iid.split("-")
-                if len(parts) == 3 and parts[2].isdigit():
-                    max_n = max(max_n, int(parts[2]))
+                m = pattern.match(str(r.get("intern_id", "")))
+                if m:
+                    max_n = max(max_n, int(m.group(1)))
             year = datetime.utcnow().year
-            return f"CDP-{year}-{max_n + 1:03d}"
+            return f"CDP-{year}-{prefix}{max_n + 1:02d}"
         except Exception as e:
-            logger.error("Failed to generate intern_id: %s", e)
+            logger.error("Failed to generate intern_id (role=%s): %s", role, e)
             import random
 
-            return f"CDP-{datetime.utcnow().year}-{random.randint(900, 999)}"
+            return f"CDP-{datetime.utcnow().year}-{prefix}{random.randint(90, 99)}"
 
     def admit_applicant(
         self,
