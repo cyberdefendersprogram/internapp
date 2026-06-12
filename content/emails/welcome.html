@@ -20,12 +20,30 @@
             The program runs for {{ week_number }} weeks. Each week you'll submit a check-in and can
             share deliverables with your mentor and cohort.
           </p>
+          {% if magic_link %}
+          <p style="color:#555;line-height:1.7;">
+            Use the button below to sign in now and complete your onboarding.
+            This link expires in <strong>{{ ttl_minutes }} minutes</strong> and can only be used once —
+            you can always request a new one from the portal sign-in page.
+          </p>
+          <div style="margin:24px 0;text-align:center;">
+            <a href="{{ magic_link }}"
+               style="background:#FA7C91;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:700;">
+              Sign In &amp; Complete Onboarding
+            </a>
+          </div>
+          <p style="color:#777;font-size:13px;margin:0 0 8px;">Or copy this link:</p>
+          <p style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:12px;word-break:break-all;color:#333;margin:0 0 24px;">
+            {{ magic_link }}
+          </p>
+          {% else %}
           <div style="margin:24px 0;text-align:center;">
             <a href="{{ base_url }}/home"
                style="background:#FA7C91;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:700;">
               Go to Dashboard
             </a>
           </div>
+          {% endif %}
           <p style="color:#777;font-size:13px;line-height:1.6;">
             <strong>Quick links:</strong><br>
             <a href="{{ checkin_url }}" style="color:#5893BC;">Submit a check-in</a><br>

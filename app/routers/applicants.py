@@ -11,6 +11,7 @@ from app.config import settings
 from app.dependencies import AdminOrMentorSession, AdminSession, templates
 from app.services.email import send_email
 from app.services.sheets import SheetsUnavailableError, get_sheets_client
+from app.services.tokens import create_magic_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/applicants")
@@ -161,6 +162,8 @@ async def admit_applicant(
         track = sheets.get_track_by_id(track_id)
         config = sheets.get_all_config()
         program_title = config.get("program_title", "Cyber Defenders Program")
+        token = create_magic_token(applicant.email)
+        magic_link = f"{settings.base_url}/auth/verify?token={token}"
         html_body = _render_welcome(
             {
                 "intern_name": applicant.display_name,
@@ -171,6 +174,8 @@ async def admit_applicant(
                 "deliverables_url": f"{settings.base_url}/deliverables",
                 "program_title": program_title,
                 "base_url": settings.base_url,
+                "magic_link": magic_link,
+                "ttl_minutes": settings.magic_link_ttl_minutes,
             }
         )
         result = await send_email(
