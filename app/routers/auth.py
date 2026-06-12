@@ -168,6 +168,16 @@ async def verify_magic_link(request: Request, token: str, response: Response):
             logger.info("Intern login: %s (id: %s)", email, roster_entry.intern_id)
             return _make_resp("intern", roster_entry.intern_id, redirect_url)
 
+        # Email pre-populated by admin but claim never completed — auto-complete it
+        if roster_entry.role == "intern" and roster_entry.preferred_email:
+            sheets.update_roster(
+                roster_entry.intern_id,
+                claimed_at=datetime.utcnow().isoformat(),
+                last_login_at=datetime.utcnow().isoformat(),
+            )
+            logger.info("Auto-completed claim for %s (id: %s)", email, roster_entry.intern_id)
+            return _make_resp("intern", roster_entry.intern_id, "/onboarding")
+
     # 3. Legacy sponsor check via Tracks sheet sponsor_email
     track = sheets.get_track_by_sponsor_email(email)
     if track:
