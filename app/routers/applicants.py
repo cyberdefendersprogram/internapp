@@ -150,6 +150,7 @@ async def admit_applicant(
         full_name=applicant.full_name,
         track_id=track_id,
         intern_id=intern_id,
+        preferred_email=applicant.email or "",
     )
     if not ok:
         return RedirectResponse(

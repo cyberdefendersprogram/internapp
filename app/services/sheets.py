@@ -537,6 +537,7 @@ class SheetsClient:
         full_name: str,
         track_id: str,
         intern_id: str,
+        preferred_email: str = "",
     ) -> bool:
         """
         Write a new row to the Roster and stamp Admitted_At (col J) on the applicant sheet.
@@ -552,6 +553,7 @@ class SheetsClient:
                 "full_name": full_name,
                 "track_id": track_id,
                 "role": "intern",
+                "preferred_email": preferred_email,
             }
             row = [data.get(h, "") for h in headers]
             roster_ws.append_row(row, value_input_option="RAW")
