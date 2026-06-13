@@ -11,25 +11,47 @@
           </p>
         </td></tr>
         <tr><td style="padding:32px;">
-          <h2 style="color:#062F49;font-size:22px;margin:0 0 16px;">Welcome, {{ intern_name }}! 🎉</h2>
+          <h2 style="color:#062F49;font-size:22px;margin:0 0 16px;">Congratulations, {{ intern_name }}! 🎉</h2>
           <p style="color:#555;line-height:1.7;">
-            You've successfully joined the <strong>{{ program_title }}</strong> as part of
-            <strong>{{ track_name }}</strong>, mentored by {{ sponsor_name }}.
+            You've been admitted to the <strong>{{ program_title }}</strong>. We're excited to have you.
           </p>
+
+          <!-- Track assignment -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+            <tr><td style="background:#EFF3F4;border-left:4px solid #FA7C91;border-radius:4px;padding:16px 20px;">
+              <p style="margin:0 0 4px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#888;font-family:'Roboto Mono',monospace;">Your Track</p>
+              <p style="margin:0;font-size:16px;font-weight:700;color:#062F49;">{{ track_name }}</p>
+              {% if sponsor_name %}
+              <p style="margin:4px 0 0;font-size:13px;color:#555;">Sponsor: <strong>{{ sponsor_name }}</strong></p>
+              {% endif %}
+              <p style="margin:10px 0 0;">
+                <a href="https://www.cyberdefendersprogram.com/intern/"
+                   style="color:#5893BC;font-size:13px;font-weight:700;">
+                  View full track details &rarr;
+                </a>
+              </p>
+            </td></tr>
+          </table>
+
           <p style="color:#555;line-height:1.7;">
-            The program runs for {{ week_number }} weeks. Each week you'll submit a check-in and can
-            share deliverables with your mentor and cohort.
+            <strong>To accept your spot</strong>, please sign in below and complete your onboarding. This confirms
+            your place in the program.
           </p>
+          <p style="color:#e05;line-height:1.7;font-size:14px;">
+            If you are <strong>not able to join</strong>, please reply to this email as soon as possible so we can
+            offer your spot to students on the waitlist.
+          </p>
+
           {% if magic_link %}
           <p style="color:#555;line-height:1.7;">
-            Use the button below to sign in now and complete your onboarding.
+            Use the button below to sign in and complete onboarding.
             This link expires in <strong>{{ ttl_minutes }} minutes</strong> and can only be used once —
             you can always request a new one from the portal sign-in page.
           </p>
           <div style="margin:24px 0;text-align:center;">
             <a href="{{ magic_link }}"
                style="background:#FA7C91;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:700;">
-              Sign In &amp; Complete Onboarding
+              Accept &amp; Complete Onboarding
             </a>
           </div>
           <p style="color:#777;font-size:13px;margin:0 0 8px;">Or copy this link:</p>
@@ -40,14 +62,25 @@
           <div style="margin:24px 0;text-align:center;">
             <a href="{{ base_url }}/home"
                style="background:#FA7C91;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:700;">
-              Go to Dashboard
+              Accept &amp; Complete Onboarding
             </a>
           </div>
           {% endif %}
-          <p style="color:#777;font-size:13px;line-height:1.6;">
-            <strong>Quick links:</strong><br>
-            <a href="{{ checkin_url }}" style="color:#5893BC;">Submit a check-in</a><br>
-            <a href="{{ deliverables_url }}" style="color:#5893BC;">Submit a deliverable</a>
+
+          <!-- First session -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 24px;">
+            <tr><td style="background:#f0f7ff;border-left:4px solid #5893BC;border-radius:4px;padding:14px 20px;">
+              <p style="margin:0 0 4px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#888;font-family:'Roboto Mono',monospace;">First Session</p>
+              <p style="margin:0;font-size:14px;color:#062F49;line-height:1.6;">
+                <strong>Monday</strong> &mdash; tentatively <strong>10am–11am PST</strong><br>
+                <span style="color:#777;font-size:13px;">We'll send connection details shortly.</span>
+              </p>
+            </td></tr>
+          </table>
+
+          <p style="color:#777;font-size:13px;line-height:1.7;border-top:1px solid #eee;padding-top:16px;">
+            <strong>Please note:</strong> Track assignments are subject to change. If you have any questions,
+            reply to this email and we'll get back to you.
           </p>
         </td></tr>
         <tr><td style="background:#EFF3F4;padding:16px 32px;text-align:center;">
