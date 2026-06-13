@@ -24,10 +24,16 @@
             <div class="control">
               <div class="select is-fullwidth">
                 <select name="audience" id="audienceSelect">
-                  <option value="all">All Active Interns</option>
-                  <option value="track">By Track</option>
-                  <option value="missing_checkin">Missing Check-In (current week)</option>
-                  <option value="single">Single Intern</option>
+                  <optgroup label="Applicants">
+                    <option value="waitlist_applicants">Waitlist Applicants ({{ waitlist_count }})</option>
+                    <option value="declined_applicants">Declined Applicants ({{ decline_count }})</option>
+                  </optgroup>
+                  <optgroup label="Interns">
+                    <option value="all">All Active Interns</option>
+                    <option value="track">By Track</option>
+                    <option value="missing_checkin">Missing Check-In (current week)</option>
+                    <option value="single">Single Intern</option>
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -118,9 +124,20 @@
   const audienceSelect = document.getElementById('audienceSelect');
   const templateSelect = document.getElementById('templateSelect');
 
+  const AUDIENCE_TEMPLATE_MAP = {
+    'waitlist_applicants': 'waitlist',
+    'declined_applicants': 'decline',
+  };
+
   audienceSelect.addEventListener('change', function() {
     document.getElementById('trackField').style.display = this.value === 'track' ? 'block' : 'none';
     document.getElementById('singleField').style.display = this.value === 'single' ? 'block' : 'none';
+    // Auto-select the matching template
+    const suggestedTmpl = AUDIENCE_TEMPLATE_MAP[this.value];
+    if (suggestedTmpl) {
+      const opt = Array.from(templateSelect.options).find(o => o.value === suggestedTmpl);
+      if (opt) templateSelect.value = suggestedTmpl;
+    }
   });
 
   templateSelect.addEventListener('change', function() {

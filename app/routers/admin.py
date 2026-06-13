@@ -193,10 +193,14 @@ async def email_composer(request: Request, session: AdminSession):
     all_interns = sheets.get_all_roster()
     tracks = sheets.get_all_tracks()
 
-    # List available templates
+    # List available templates — exclude applicant-only templates from intern audiences
     templates_available = []
     if EMAIL_TEMPLATES_DIR.exists():
-        templates_available = [p.stem for p in EMAIL_TEMPLATES_DIR.glob("*.html")]
+        templates_available = sorted(p.stem for p in EMAIL_TEMPLATES_DIR.glob("*.html"))
+
+    applicants = sheets.get_all_applicants() if settings.applicant_sheets_id else []
+    waitlist_count = sum(1 for a in applicants if a.decision == "Waitlist")
+    decline_count = sum(1 for a in applicants if a.decision == "Decline")
 
     return templates.TemplateResponse(
         "admin_email.html",
@@ -205,6 +209,8 @@ async def email_composer(request: Request, session: AdminSession):
             "interns": [i for i in all_interns if i.is_claimed],
             "tracks": tracks,
             "email_templates": templates_available,
+            "waitlist_count": waitlist_count,
+            "decline_count": decline_count,
             "preview_html": None,
             "error": None,
             "success": None,
@@ -229,7 +235,24 @@ async def email_preview(
     config = sheets.get_all_config()
     program_title = config.get("program_title", "Cyber Defenders Program")
 
-    # Pick a sample recipient
+    # Applicant-audience templates use applicant context
+    if audience in ("waitlist_applicants", "declined_applicants"):
+        decision = "Waitlist" if audience == "waitlist_applicants" else "Decline"
+        applicants = sheets.get_all_applicants()
+        sample_app = next((a for a in applicants if a.decision == decision), None)
+        ctx = {
+            "intern_name": sample_app.display_name if sample_app else "Sample Applicant",
+            "program_title": program_title,
+        }
+        try:
+            env = get_email_template_env()
+            tmpl = env.get_template(f"{template_slug}.html")
+            preview_html = tmpl.render(**ctx)
+        except Exception as e:
+            preview_html = f"<p>Template error: {e}</p>"
+        return JSONResponse({"preview": preview_html})
+
+    # Intern-audience templates
     all_interns = sheets.get_all_roster()
     claimed = [i for i in all_interns if i.is_claimed]
     sample = claimed[0] if claimed else None
@@ -280,14 +303,79 @@ async def email_send(
     config = sheets.get_all_config()
     program_title = config.get("program_title", "Cyber Defenders Program")
 
+    APPLICANT_AUDIENCES = {"waitlist_applicants", "declined_applicants"}
+    APPLICANT_SUBJECTS = {
+        "waitlist": f"Your Application to {program_title} — Waitlist Status",
+        "decline": f"Thank you for applying to {program_title}",
+    }
+    INTERN_SUBJECTS = {
+        "welcome": f"Welcome to {program_title}",
+        "weekly-reminder": f"Week {week_number} check-in is open",
+        "missing-checkin": f"Don't forget your Week {week_number} check-in",
+    }
+
+    sent = 0
+    failed = 0
+
+    # ── Applicant audiences (waitlist / decline) ──────────────────────────────
+    if audience in APPLICANT_AUDIENCES:
+        decision = "Waitlist" if audience == "waitlist_applicants" else "Decline"
+        applicants = sheets.get_all_applicants()
+        targets = [a for a in applicants if a.decision == decision and a.email]
+
+        try:
+            env = get_email_template_env()
+            tmpl = env.get_template(f"{template_slug}.html")
+        except Exception as e:
+            return JSONResponse({"sent": 0, "failed": 0, "total": 0, "error": str(e)})
+
+        subject = APPLICANT_SUBJECTS.get(
+            template_slug, custom_subject or f"Update from {program_title}"
+        )
+
+        for applicant in targets:
+            ctx = {"intern_name": applicant.display_name, "program_title": program_title}
+            try:
+                html_body = tmpl.render(**ctx)
+            except Exception as e:
+                logger.error("Template render error for %s: %s", applicant.email, e)
+                failed += 1
+                continue
+
+            result = await send_email(applicant.email, subject, html_body)
+            sheets.append_email_log(
+                {
+                    "sent_at": datetime.utcnow().isoformat(),
+                    "sender_email": session.email,
+                    "recipient_email": applicant.email,
+                    "recipient_name": applicant.display_name,
+                    "subject": subject,
+                    "template": template_slug,
+                    "status": "sent" if result.success else "failed",
+                    "note": result.error or "",
+                }
+            )
+            if result.success:
+                sent += 1
+            else:
+                failed += 1
+
+        logger.info(
+            "Applicant bulk email (%s) by %s: %d sent, %d failed",
+            decision,
+            session.email,
+            sent,
+            failed,
+        )
+        return JSONResponse({"sent": sent, "failed": failed, "total": len(targets)})
+
+    # ── Intern / roster audiences ─────────────────────────────────────────────
     all_interns = sheets.get_all_roster()
-    # Build recipient list based on audience
     if audience == "all":
         recipients = [i for i in all_interns if i.is_claimed]
     elif audience == "track" and track_id:
         recipients = [i for i in all_interns if i.is_claimed and i.track_id == track_id]
     elif audience == "missing_checkin":
-        # Load checkins for current week
         recipients = []
         for intern in all_interns:
             if not intern.is_claimed:
@@ -302,11 +390,7 @@ async def email_send(
     else:
         recipients = [i for i in all_interns if i.is_claimed]
 
-    # Cap at 50
     recipients = recipients[:50]
-
-    sent = 0
-    failed = 0
 
     for intern in recipients:
         track = sheets.get_track_by_id(intern.track_id)
@@ -329,11 +413,7 @@ async def email_send(
                 env = get_email_template_env()
                 tmpl = env.get_template(f"{template_slug}.html")
                 html_body = tmpl.render(**ctx)
-                subject = {
-                    "welcome": f"Welcome to {program_title}",
-                    "weekly-reminder": f"Week {week_number} check-in is open",
-                    "missing-checkin": f"Don't forget your Week {week_number} check-in",
-                }.get(template_slug, custom_subject or "Message from CDP")
+                subject = INTERN_SUBJECTS.get(template_slug, custom_subject or "Message from CDP")
             except Exception as e:
                 logger.error("Template render error: %s", e)
                 failed += 1
