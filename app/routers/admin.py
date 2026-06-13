@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 from app.config import settings
 from app.dependencies import AdminSession, templates
 from app.routers.intern import compute_week_number
+from app.services.cache import get_cache_stats, invalidate_all
 from app.services.email import send_email
 from app.services.sheets import get_sheets_client
 
@@ -371,3 +372,12 @@ async def email_send(
 
     logger.info("Bulk email sent by %s: %d sent, %d failed", session.email, sent, failed)
     return JSONResponse({"sent": sent, "failed": failed, "total": len(recipients)})
+
+
+@router.post("/cache/clear")
+async def cache_clear(request: Request, session: AdminSession):
+    """Flush the in-memory cache so the next request re-reads from Google Sheets."""
+    stats_before = get_cache_stats()
+    cleared = invalidate_all()
+    logger.info("Cache cleared by %s: %d entries flushed", session.email, cleared)
+    return JSONResponse({"cleared": cleared, "before": stats_before})

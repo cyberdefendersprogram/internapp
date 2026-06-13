@@ -68,6 +68,126 @@ def ensure_headers(ws, headers: list[str]):
         print("    Headers already correct.")
 
 
+def _cdp_2026_tracks() -> list[list]:
+    """Return the 7 official CDP 2026 tracks as sheet rows."""
+    # [track_id, name, description, employer_sponsor, sponsor_email, status]
+    return [
+        [
+            "track-1",
+            "Malware Copilot: AI-Assisted Reverse Engineering Lab",
+            "Build Model Context Protocol tools for malware analysis agents. Integrate tools into agent frameworks, analyze malware samples from basic to advanced scenarios, and benchmark different models and configurations for quality, speed, and cost.",
+            "",
+            "",
+            "active",
+        ],
+        [
+            "track-2",
+            "Secure the Mission: Nonprofit Security Assessment Lab",
+            "Conduct technical security reviews for community organizations, creating prioritized, plain-language recommendations that nonprofit staff can act on and delivering professional assessment reports for stakeholders.",
+            "",
+            "",
+            "active",
+        ],
+        [
+            "track-3",
+            "Trust but Verify: SOC 2 Audit Readiness",
+            "Support live compliance programs at Interlaced by mapping controls to SOC 2 criteria, remediating policy gaps, collecting audit evidence, and maintaining risk registers and remediation trackers.",
+            "Troy Mason",
+            "troy.mason@interlaced.com",
+            "active",
+        ],
+        [
+            "track-4",
+            "Lens Check: IoT Camera Privacy Lab",
+            "Analyze consumer IoT devices' firmware, network communications, and cloud connections. Document privacy and security risks, and create consumer-focused recommendations and responsible disclosure templates.",
+            "",
+            "",
+            "active",
+        ],
+        [
+            "track-5",
+            "Ghost Cloud: LLM Honeypots in AWS",
+            "Build deception environments using Beelzebub to collect attacker telemetry, commands, and indicators while maintaining safety guardrails on real AWS infrastructure.",
+            "",
+            "",
+            "active",
+        ],
+        [
+            "track-6",
+            "Signal in the Noise: Threat Intel for Community Defenders",
+            "Research threat actors and campaigns, map tactics to MITRE ATT&CK, and deliver practical defensive guidance for small organizations.",
+            "",
+            "",
+            "active",
+        ],
+        [
+            "track-7",
+            "Prompt to Pentest: LLM-Assisted Security Testing Lab",
+            "Use LLMs for vulnerability discovery, scanner analysis, and pentesting tool development in controlled environments with documented safety boundaries.",
+            "",
+            "",
+            "active",
+        ],
+    ]
+
+
+def update_tracks(spreadsheet):
+    """Replace Tracks sheet with the 7 official CDP 2026 tracks and remap Roster track IDs."""
+    tracks_ws = spreadsheet.worksheet("Tracks")
+
+    # Map old track IDs → new track IDs based on topic alignment
+    track_id_remap = {
+        "track-8": "track-1",  # Malware Analysis → Malware Copilot
+        "track-7": "track-2",  # Non profit risk → Secure the Mission (Nonprofit)
+        "track-9": "track-3",  # Trust but Verify SOC 2 (already correct name, renumber)
+        "track-3": "track-4",  # Vulnerability Research → Lens Check (IoT)
+        "track-2": "track-5",  # Cloud Security (AWS Honeypot) → Ghost Cloud
+        "track-1": "track-6",  # Threat Intelligence → Signal in the Noise
+        "track-6": "track-7",  # Pentesting → Prompt to Pentest
+    }
+
+    # Clear existing track rows (keep header)
+    all_values = tracks_ws.get_all_values()
+    if len(all_values) > 1:
+        tracks_ws.delete_rows(2, len(all_values))
+
+    new_tracks = _cdp_2026_tracks()
+    tracks_ws.append_rows(new_tracks, value_input_option="RAW")
+    print(f"[Tracks] Replaced with {len(new_tracks)} CDP 2026 tracks.")
+
+    # Remap Roster track_ids
+    roster_ws = spreadsheet.worksheet("Roster")
+    roster_headers = roster_ws.row_values(1)
+    if "track_id" not in roster_headers:
+        print("[Roster] track_id column not found — skipping remap.")
+        return
+
+    track_id_col = roster_headers.index("track_id") + 1  # 1-indexed
+    all_roster = roster_ws.get_all_values()
+    remapped = 0
+    unmapped = []
+
+    for row_idx, row in enumerate(all_roster[1:], start=2):
+        if len(row) < track_id_col:
+            continue
+        old_id = row[track_id_col - 1]
+        if old_id in track_id_remap:
+            new_id = track_id_remap[old_id]
+            roster_ws.update_cell(row_idx, track_id_col, new_id)
+            intern_id = row[0] if row else "?"
+            print(f"  Roster row {row_idx} ({intern_id}): {old_id} → {new_id}")
+            remapped += 1
+        elif old_id and old_id not in {f"track-{i}" for i in range(1, 8)}:
+            intern_id = row[0] if row else "?"
+            unmapped.append(f"  {intern_id}: track_id='{old_id}' (no mapping defined)")
+
+    print(f"[Roster] Remapped {remapped} rows.")
+    if unmapped:
+        print("[Roster] WARNING — rows with unrecognized track IDs (manual review needed):")
+        for u in unmapped:
+            print(u)
+
+
 def create_structure(spreadsheet):
     """Create all 8 tabs with correct headers."""
 
@@ -207,49 +327,8 @@ def create_structure(spreadsheet):
     tracks_ws = spreadsheet.worksheet("Tracks")
     existing_tracks = tracks_ws.get_all_records()
     if not existing_tracks:
-        print("\n[Tracks] Adding sample tracks...")
-        sample_tracks = [
-            [
-                "track-1",
-                "Threat Intelligence",
-                "Research and analyze threat actors and TTPs.",
-                "Jane Mentor",
-                "jane@company.com",
-                "active",
-            ],
-            [
-                "track-2",
-                "Cloud Security",
-                "Secure cloud infrastructure and review IAM policies.",
-                "John Mentor",
-                "john@company.com",
-                "active",
-            ],
-            [
-                "track-3",
-                "Vulnerability Research",
-                "Find and document security vulnerabilities.",
-                "Alice Mentor",
-                "alice@company.com",
-                "active",
-            ],
-            [
-                "track-4",
-                "Incident Response",
-                "Detect, analyze, and respond to security incidents.",
-                "Bob Mentor",
-                "bob@company.com",
-                "active",
-            ],
-            [
-                "track-5",
-                "Security Engineering",
-                "Build security tooling and automation.",
-                "Carol Mentor",
-                "carol@company.com",
-                "active",
-            ],
-        ]
+        print("\n[Tracks] Adding 2026 program tracks...")
+        sample_tracks = _cdp_2026_tracks()
         tracks_ws.append_rows(sample_tracks, value_input_option="RAW")
 
     # Seed sample Roster if empty
@@ -641,13 +720,18 @@ def main():
         help="Add discord_id and discord_notify columns to Roster",
     )
     parser.add_argument(
+        "--update-tracks",
+        action="store_true",
+        help="Replace Tracks sheet with CDP 2026 tracks and remap Roster track IDs",
+    )
+    parser.add_argument(
         "--email",
         default="vaibhavb@gmail.com",
         help="Email address to target for test task seeding (default: vaibhavb@gmail.com)",
     )
     args = parser.parse_args()
 
-    if not (args.create_structure or args.seed_tasks or args.migrate_discord):
+    if not (args.create_structure or args.seed_tasks or args.migrate_discord or args.update_tracks):
         parser.print_help()
         sys.exit(0)
 
@@ -667,6 +751,10 @@ def main():
     if args.migrate_discord:
         print("\n[Roster] Migrating discord columns...")
         migrate_roster_discord_columns(spreadsheet)
+
+    if args.update_tracks:
+        print("\n[Tracks] Updating tracks to CDP 2026 program...")
+        update_tracks(spreadsheet)
 
     if args.seed_tasks:
         seed_tasks(spreadsheet, target_email=args.email)

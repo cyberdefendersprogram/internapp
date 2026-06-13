@@ -74,8 +74,32 @@
 <!-- Header -->
 <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px;">
   <h1 class="title cdp-heading" style="margin:0;">Admin Dashboard</h1>
-  <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">Week {{ week_number }}</span>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">Week {{ week_number }}</span>
+    <button id="cache-clear-btn" class="button is-small is-warning is-light"
+            title="Flush in-memory cache so the next page load re-reads from Google Sheets">
+      Clear Cache
+    </button>
+  </div>
 </div>
+<div id="cache-clear-msg" style="display:none;margin-bottom:1rem;"></div>
+<script>
+document.getElementById('cache-clear-btn').addEventListener('click', async function() {
+  this.classList.add('is-loading');
+  try {
+    const res = await fetch('/admin/cache/clear', {method: 'POST'});
+    const data = await res.json();
+    const msg = document.getElementById('cache-clear-msg');
+    msg.innerHTML = '<div class="notification is-success is-light" style="padding:.5rem 1rem;font-size:13px;">Cache cleared — ' + data.cleared + ' entries flushed. Reload the page to see fresh data.</div>';
+    msg.style.display = 'block';
+  } catch(e) {
+    const msg = document.getElementById('cache-clear-msg');
+    msg.innerHTML = '<div class="notification is-danger is-light" style="padding:.5rem 1rem;font-size:13px;">Cache clear failed.</div>';
+    msg.style.display = 'block';
+  }
+  this.classList.remove('is-loading');
+});
+</script>
 
 <!-- Stats row -->
 <div class="columns is-mobile is-multiline mb-5">
