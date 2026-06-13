@@ -371,7 +371,10 @@ async def email_send(
 
     # ── Intern / roster audiences ─────────────────────────────────────────────
     all_interns = sheets.get_all_roster()
-    if audience == "all":
+    if audience == "admitted":
+        # All interns with an email address — admitted but may not have claimed yet
+        recipients = [i for i in all_interns if i.role == "intern" and i.preferred_email]
+    elif audience == "all":
         recipients = [i for i in all_interns if i.is_claimed]
     elif audience == "track" and track_id:
         recipients = [i for i in all_interns if i.is_claimed and i.track_id == track_id]
