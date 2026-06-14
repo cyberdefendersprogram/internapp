@@ -42,6 +42,8 @@ class SheetsClient:
     def __init__(self):
         self._client: gspread.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
+        self._worksheets: dict[str, gspread.Worksheet] = {}
+        self._email_log_headers: list[str] | None = None
 
     def _get_client(self) -> gspread.Client:
         """Get or create gspread client."""
@@ -66,22 +68,25 @@ class SheetsClient:
         return self._spreadsheet
 
     def _get_worksheet(self, name: str) -> gspread.Worksheet:
-        """Get worksheet by name."""
-        spreadsheet = self._get_spreadsheet()
-        return spreadsheet.worksheet(name)
+        """Get worksheet by name, caching the handle to avoid repeated metadata fetches."""
+        if name not in self._worksheets:
+            spreadsheet = self._get_spreadsheet()
+            self._worksheets[name] = spreadsheet.worksheet(name)
+        return self._worksheets[name]
 
     def check_connection(self) -> bool:
-        """Check if Sheets connection is working."""
+        """Check if Sheets connection is working.
+
+        Validates config and credentials only — does NOT make a live API call,
+        since health is checked every 30 s and a live call would exhaust quota.
+        """
         try:
             if not settings.google_sheets_id or not settings.google_service_account_path:
                 return False
-
             sa_path = Path(settings.google_service_account_path)
             if not sa_path.exists():
                 return False
-
-            spreadsheet = self._get_spreadsheet()
-            spreadsheet.worksheet("Config")
+            self._get_client()
             return True
         except Exception as e:
             logger.warning("Sheets connection check failed: %s", e)
@@ -402,8 +407,9 @@ class SheetsClient:
         """Append an email log row."""
         try:
             worksheet = self._get_worksheet("Email_Log")
-            headers = worksheet.row_values(1)
-            row = [data.get(h, "") for h in headers]
+            if self._email_log_headers is None:
+                self._email_log_headers = worksheet.row_values(1)
+            row = [data.get(h, "") for h in self._email_log_headers]
             worksheet.append_row(row, value_input_option="RAW")
             return True
         except Exception as e:
