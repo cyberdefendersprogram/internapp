@@ -74,6 +74,14 @@ async def home(request: Request, session: RequiredSession):
         reverse=True,
     )[:3]
 
+    # Tasks — split into todo and done, high-priority first
+    all_tasks = sheets.get_tasks_for_intern(intern.intern_id)
+    todo_tasks = sorted(
+        [t for t in all_tasks if t.status == "todo"],
+        key=lambda t: (0 if t.priority == "high" else 1, t.due_week or 99),
+    )
+    done_tasks = [t for t in all_tasks if t.status == "done"]
+
     return templates.TemplateResponse(
         "home.html",
         {
@@ -84,6 +92,8 @@ async def home(request: Request, session: RequiredSession):
             "checked_in_this_week": checked_in_this_week,
             "recent_deliverables": recent_deliverables,
             "deliverable_count": len(deliverables),
+            "todo_tasks": todo_tasks,
+            "done_tasks": done_tasks,
             "session": request.cookies.get("session"),
         },
     )

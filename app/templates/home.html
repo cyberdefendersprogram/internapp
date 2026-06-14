@@ -25,6 +25,17 @@
   .action-btn.outline:hover { background: var(--cdp-light); }
   .deliverable-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
   .deliverable-item:last-child { border-bottom: none; }
+  .task-item { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid #f0f0f0; }
+  .task-item:last-child { border-bottom:none; }
+  .task-item.is-done .task-title { text-decoration:line-through; color:#aaa; }
+  .task-check { flex-shrink:0; width:18px; height:18px; border-radius:4px; border:2px solid #d0d5db;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; background:#fff;
+    transition:background .15s,border-color .15s; }
+  .task-check:hover { border-color:var(--cdp-blue); }
+  .task-check.checked { background:var(--cdp-blue); border-color:var(--cdp-blue); }
+  .task-check.checked::after { content:'✓'; color:#fff; font-size:11px; font-weight:700; }
+  .task-title { font-size:13px; color:var(--cdp-navy); line-height:1.4; flex:1; }
+  .task-meta { font-size:11px; color:#aaa; margin-top:2px; }
 </style>
 {% endblock %}
 
@@ -98,6 +109,69 @@
       </div>
     </div>
 
+    <!-- Tasks -->
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin:0;">
+            Tasks
+            {% if todo_tasks %}<span data-task-count style="color:#aaa;font-weight:400;"> ({{ todo_tasks|length }} open)</span>{% endif %}
+          </p>
+          {% if done_tasks %}
+          <span style="font-size:11px;color:#48c78e;font-weight:700;">{{ done_tasks|length }} done ✓</span>
+          {% endif %}
+        </div>
+
+        {% if todo_tasks %}
+        <div id="task-list">
+          {% for task in todo_tasks %}
+          <div class="task-item" id="task-{{ task.task_id }}">
+            <div class="task-check" onclick="markDone('{{ task.task_id }}', this)"></div>
+            <div style="flex:1;">
+              <div class="task-title">
+                {% if task.priority == 'high' %}
+                <span style="color:#FA7C91;font-size:10px;font-weight:700;margin-right:4px;">HIGH</span>
+                {% endif %}
+                {{ task.title }}
+              </div>
+              {% if task.description %}
+              <div class="task-meta">{{ task.description }}</div>
+              {% endif %}
+              {% if task.due_week %}
+              <div class="task-meta">Due: Week {{ task.due_week }}
+                {% if task.linked_feature == 'checkin' %}
+                &nbsp;·&nbsp;<a href="/checkin" style="color:var(--cdp-blue);">Go to check-in</a>
+                {% elif task.linked_feature == 'deliverable' %}
+                &nbsp;·&nbsp;<a href="/deliverables" style="color:var(--cdp-blue);">Submit deliverable</a>
+                {% elif task.linked_feature == 'onboarding' %}
+                &nbsp;·&nbsp;<a href="/me" style="color:var(--cdp-blue);">Complete profile</a>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% elif done_tasks %}
+        <p class="is-size-7" style="color:#48c78e;margin-top:.5rem;">All tasks complete — great work!</p>
+        {% else %}
+        <p class="is-size-7 has-text-grey mt-2">No tasks assigned yet.</p>
+        {% endif %}
+
+        {% if done_tasks %}
+        <details style="margin-top:10px;">
+          <summary style="font-size:12px;color:#aaa;cursor:pointer;">Show {{ done_tasks|length }} completed</summary>
+          {% for task in done_tasks %}
+          <div class="task-item is-done">
+            <div class="task-check checked"></div>
+            <div class="task-title">{{ task.title }}</div>
+          </div>
+          {% endfor %}
+        </details>
+        {% endif %}
+      </div>
+    </div>
+
   </div>
 
   <!-- Right column -->
@@ -166,4 +240,41 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function markDone(taskId, checkEl) {
+  checkEl.style.opacity = '0.5';
+  checkEl.style.pointerEvents = 'none';
+  try {
+    const res = await fetch(`/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status: 'done', skip_reason: ''})
+    });
+    if (res.ok) {
+      const row = document.getElementById(`task-${taskId}`);
+      row.style.transition = 'opacity .3s';
+      row.style.opacity = '0';
+      setTimeout(() => {
+        row.remove();
+        const remaining = document.querySelectorAll('#task-list .task-item').length;
+        const countEl = document.querySelector('[data-task-count]');
+        if (countEl) countEl.textContent = remaining > 0 ? ` (${remaining} open)` : '';
+        if (remaining === 0) {
+          document.getElementById('task-list').innerHTML =
+            '<p class="is-size-7" style="color:#48c78e;margin-top:.5rem;">All tasks complete — great work!</p>';
+        }
+      }, 300);
+    } else {
+      checkEl.style.opacity = '1';
+      checkEl.style.pointerEvents = 'auto';
+    }
+  } catch {
+    checkEl.style.opacity = '1';
+    checkEl.style.pointerEvents = 'auto';
+  }
+}
+</script>
 {% endblock %}
