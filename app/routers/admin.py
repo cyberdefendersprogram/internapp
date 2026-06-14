@@ -310,6 +310,7 @@ async def email_send(
     }
     INTERN_SUBJECTS = {
         "welcome": f"Welcome to {program_title}",
+        "kickoff": f"See you tomorrow — {program_title} Kickoff, Monday 9am PST",
         "weekly-reminder": f"Week {week_number} check-in is open",
         "missing-checkin": f"Don't forget your Week {week_number} check-in",
     }
@@ -346,7 +347,7 @@ async def email_send(
             sheets.append_email_log(
                 {
                     "sent_at": datetime.utcnow().isoformat(),
-                    "sender_email": session.email,
+                    "sender_email": settings.forwardemail_user,
                     "recipient_email": applicant.email,
                     "recipient_name": applicant.display_name,
                     "subject": subject,
@@ -423,7 +424,7 @@ async def email_send(
                 sheets.append_email_log(
                     {
                         "sent_at": datetime.utcnow().isoformat(),
-                        "sender_email": session.email,
+                        "sender_email": settings.forwardemail_user,
                         "recipient_email": intern.preferred_email or "",
                         "recipient_name": intern.display_name,
                         "subject": "",
@@ -438,7 +439,7 @@ async def email_send(
 
         log_data = {
             "sent_at": datetime.utcnow().isoformat(),
-            "sender_email": session.email,
+            "sender_email": settings.forwardemail_user,
             "recipient_email": intern.preferred_email or "",
             "recipient_name": intern.display_name,
             "subject": subject,
