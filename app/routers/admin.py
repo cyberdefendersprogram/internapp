@@ -14,7 +14,6 @@ from app.routers.intern import compute_week_number
 from app.services.cache import get_cache_stats, invalidate_all
 from app.services.email import send_email
 from app.services.sheets import get_sheets_client
-from app.services.tokens import create_magic_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin")
@@ -459,22 +458,45 @@ async def email_send(
     return JSONResponse({"sent": sent, "failed": failed, "total": len(recipients)})
 
 
-@router.post("/intern/{intern_id}/view-as")
-async def view_as_intern(request: Request, intern_id: str, session: AdminSession):
-    """Generate a one-time magic link to view the portal as a specific intern."""
+@router.get("/intern/{intern_id}/preview", response_class=HTMLResponse)
+async def preview_as_intern(request: Request, intern_id: str, session: AdminSession):
+    """Render the intern dashboard server-side without touching the session cookie."""
     sheets = get_sheets_client()
     intern = sheets.get_roster_by_id(intern_id)
-    if not intern or not intern.preferred_email:
-        return JSONResponse({"error": "Intern not found or has no email"}, status_code=404)
-    token = create_magic_token(intern.preferred_email)
-    url = f"{settings.base_url}/auth/verify?token={token}"
-    logger.info(
-        "Admin %s generated view-as link for %s (%s)",
-        session.email,
-        intern_id,
-        intern.preferred_email,
+    if not intern:
+        return HTMLResponse("Intern not found.", status_code=404)
+
+    track = sheets.get_track_by_id(intern.track_id)
+    week_number = compute_week_number(sheets)
+    checkins = sheets.get_checkins_for_intern(intern.intern_id)
+    checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
+    deliverables = sheets.get_deliverables_for_intern(intern.intern_id)
+    recent_deliverables = sorted(
+        deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
+    )[:3]
+    all_tasks = sheets.get_tasks_for_intern(intern.intern_id)
+    todo_tasks = sorted(
+        [t for t in all_tasks if t.status == "todo"],
+        key=lambda t: (0 if t.priority == "high" else 1, t.due_week or 99),
     )
-    return JSONResponse({"url": url, "name": intern.display_name})
+    done_tasks = [t for t in all_tasks if t.status == "done"]
+    logger.info("Admin %s previewing intern dashboard for %s", session.email, intern_id)
+    return templates.TemplateResponse(
+        "home.html",
+        {
+            "request": request,
+            "intern": intern,
+            "track": track,
+            "week_number": week_number,
+            "checked_in_this_week": checked_in_this_week,
+            "recent_deliverables": recent_deliverables,
+            "deliverable_count": len(deliverables),
+            "todo_tasks": todo_tasks,
+            "done_tasks": done_tasks,
+            "preview_mode": True,
+            "preview_back_url": f"/admin/intern/{intern_id}",
+        },
+    )
 
 
 @router.post("/cache/clear")
