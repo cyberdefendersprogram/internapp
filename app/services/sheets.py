@@ -165,43 +165,21 @@ class SheetsClient:
     # Roster methods
     # -------------------------------------------------------------------------
 
-    @cached(ttl_seconds=CACHE_TTL_ROSTER, prefix="roster")
     def get_roster_by_email(self, email: str) -> InternEntry | None:
-        """Get roster entry by email address."""
-        try:
-            worksheet = self._get_worksheet("Roster")
-            records = worksheet.get_all_records()
+        """Get roster entry by email address, filtered from cached get_all_roster."""
+        email_lower = email.lower()
+        for entry in self.get_all_roster():
+            if (entry.preferred_email or "").lower() == email_lower:
+                return entry
+        return None
 
-            for record in records:
-                if record.get("preferred_email", "").lower() == email.lower():
-                    return InternEntry.from_row(record)
-
-            return None
-        except gspread.exceptions.APIError as e:
-            logger.error("Sheets API error getting roster by email '%s': %s", email, e)
-            raise SheetsUnavailableError(str(e)) from e
-        except Exception as e:
-            logger.error("Failed to get roster by email '%s': %s", email, e)
-            return None
-
-    @cached(ttl_seconds=CACHE_TTL_ROSTER, prefix="roster")
     def get_roster_by_id(self, intern_id: str) -> InternEntry | None:
-        """Get roster entry by intern_id."""
-        try:
-            worksheet = self._get_worksheet("Roster")
-            records = worksheet.get_all_records()
-
-            for record in records:
-                if str(record.get("intern_id")) == str(intern_id):
-                    return InternEntry.from_row(record)
-
-            return None
-        except gspread.exceptions.APIError as e:
-            logger.error("Sheets API error getting roster by id '%s': %s", intern_id, e)
-            raise SheetsUnavailableError(str(e)) from e
-        except Exception as e:
-            logger.error("Failed to get roster by id '%s': %s", intern_id, e)
-            return None
+        """Get roster entry by intern_id, filtered from cached get_all_roster."""
+        intern_id_str = str(intern_id)
+        for entry in self.get_all_roster():
+            if str(entry.intern_id) == intern_id_str:
+                return entry
+        return None
 
     @cached(ttl_seconds=CACHE_TTL_ROSTER, prefix="all_roster")
     def get_all_roster(self) -> list[InternEntry]:
@@ -651,6 +629,7 @@ class SheetsClient:
 
     CACHE_TTL_TASKS = 120  # 2 minutes
 
+    @cached(ttl_seconds=120, prefix="tasks_intern")
     @cached(ttl_seconds=120, prefix="tasks_intern")
     def get_tasks_for_intern(self, intern_id: str) -> list:
         """Get all tasks assigned to an intern."""
