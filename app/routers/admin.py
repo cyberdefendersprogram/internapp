@@ -310,7 +310,7 @@ async def email_send(
     }
     INTERN_SUBJECTS = {
         "welcome": f"Welcome to {program_title}",
-        "kickoff": f"See you tomorrow — {program_title} Kickoff, Monday 9am PST",
+        "kickoff": f"See you tomorrow — {program_title} Kickoff, Monday 10am PST",
         "weekly-reminder": f"Week {week_number} check-in is open",
         "missing-checkin": f"Don't forget your Week {week_number} check-in",
     }
