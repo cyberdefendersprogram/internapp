@@ -14,6 +14,7 @@ from app.routers.intern import compute_week_number
 from app.services.cache import get_cache_stats, invalidate_all
 from app.services.email import send_email
 from app.services.sheets import get_sheets_client
+from app.services.tokens import create_magic_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin")
@@ -456,6 +457,24 @@ async def email_send(
 
     logger.info("Bulk email sent by %s: %d sent, %d failed", session.email, sent, failed)
     return JSONResponse({"sent": sent, "failed": failed, "total": len(recipients)})
+
+
+@router.post("/intern/{intern_id}/view-as")
+async def view_as_intern(request: Request, intern_id: str, session: AdminSession):
+    """Generate a one-time magic link to view the portal as a specific intern."""
+    sheets = get_sheets_client()
+    intern = sheets.get_roster_by_id(intern_id)
+    if not intern or not intern.preferred_email:
+        return JSONResponse({"error": "Intern not found or has no email"}, status_code=404)
+    token = create_magic_token(intern.preferred_email)
+    url = f"{settings.base_url}/auth/verify?token={token}"
+    logger.info(
+        "Admin %s generated view-as link for %s (%s)",
+        session.email,
+        intern_id,
+        intern.preferred_email,
+    )
+    return JSONResponse({"url": url, "name": intern.display_name})
 
 
 @router.post("/cache/clear")

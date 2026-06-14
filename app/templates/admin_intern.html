@@ -15,7 +15,13 @@
   <div class="level-left">
     <h1 class="title cdp-heading" style="margin:0;">{{ intern.display_name }}</h1>
   </div>
-  <div class="level-right">
+  <div class="level-right" style="gap:8px;">
+    {% if intern.preferred_email %}
+    <button id="view-as-btn" class="button is-info is-small"
+            onclick="viewAs('{{ intern.intern_id }}')">
+      View as {{ intern.display_name.split(',')[0] }} →
+    </button>
+    {% endif %}
     <a href="/admin" class="button is-light is-small">← All Interns</a>
   </div>
 </div>
@@ -110,4 +116,28 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function viewAs(internId) {
+  const btn = document.getElementById('view-as-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try {
+    const res = await fetch(`/admin/intern/${internId}/view-as`, {method: 'POST'});
+    const data = await res.json();
+    if (data.url) {
+      window.open(data.url, '_blank');
+      btn.textContent = 'Link opened ✓';
+    } else {
+      btn.textContent = data.error || 'Error';
+      btn.disabled = false;
+    }
+  } catch {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
+}
+</script>
 {% endblock %}
