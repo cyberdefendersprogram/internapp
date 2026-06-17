@@ -97,12 +97,28 @@ class InternEntry:
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
-    """Parse ISO datetime string."""
+    """Parse datetime from ISO string or Google Sheets-formatted date strings."""
     if not value:
         return None
-    try:
-        if "." in str(value):
-            return datetime.fromisoformat(str(value))
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except (ValueError, TypeError):
+    s = str(value).strip()
+    if not s:
         return None
+    # ISO format (written by the app): "2026-06-15T10:30:45.123456" or "2026-06-15T10:30:45"
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        pass
+    # Google Sheets reformats ISO timestamps, dropping the T and sometimes the leading
+    # zero on the hour: "2026-06-13 4:11:30" — strptime %H accepts single-digit hours.
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%m/%d/%Y %I:%M:%S %p",
+        "%m/%d/%Y %H:%M:%S",
+        "%m/%d/%Y",
+    ):
+        try:
+            return datetime.strptime(s, fmt)
+        except (ValueError, TypeError):
+            pass
+    return None

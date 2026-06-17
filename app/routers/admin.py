@@ -311,6 +311,7 @@ async def email_send(
     INTERN_SUBJECTS = {
         "welcome": f"Welcome to {program_title}",
         "kickoff": f"See you tomorrow — {program_title} Kickoff, Monday 10am PST",
+        "confirm-spot": "Action required: confirm your spot by June 17 at 5pm PST",
         "weekly-reminder": f"Week {week_number} check-in is open",
         "missing-checkin": f"Don't forget your Week {week_number} check-in",
     }
@@ -375,6 +376,13 @@ async def email_send(
     if audience == "admitted":
         # All interns with an email address — admitted but may not have claimed yet
         recipients = [i for i in all_interns if i.role == "intern" and i.preferred_email]
+    elif audience == "not_onboarded":
+        # Admitted interns who have not completed onboarding (includes unclaimed)
+        recipients = [
+            i
+            for i in all_interns
+            if i.role == "intern" and i.preferred_email and not i.is_onboarded
+        ]
     elif audience == "all":
         recipients = [i for i in all_interns if i.is_claimed]
     elif audience == "track" and track_id:

@@ -32,6 +32,7 @@
                     <option value="admitted">All Admitted Interns (has email, incl. unclaimed)</option>
                     <option value="all">Claimed Interns Only</option>
                     <option value="track">By Track</option>
+                    <option value="not_onboarded">Not Yet Onboarded (admitted, no onboarding)</option>
                     <option value="missing_checkin">Missing Check-In (current week)</option>
                     <option value="single">Single Intern</option>
                   </optgroup>
@@ -132,6 +133,7 @@
   const TEMPLATE_AUDIENCE_MAP = {
     'welcome': 'admitted',
     'kickoff': 'admitted',
+    'confirm-spot': 'not_onboarded',
   };
 
   audienceSelect.addEventListener('change', function() {

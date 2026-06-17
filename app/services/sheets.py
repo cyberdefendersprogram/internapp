@@ -254,7 +254,14 @@ class SheetsClient:
                     for field_name, value in fields.items():
                         if field_name in headers:
                             col_num = headers.index(field_name) + 1
-                            worksheet.update_cell(row_num, col_num, value if value else "")
+                            cell_value = value if value else ""
+                            # RAW prevents Google Sheets from auto-converting ISO
+                            # timestamps into date serials, which breaks _parse_datetime.
+                            worksheet.update(
+                                [[cell_value]],
+                                gspread.utils.rowcol_to_a1(row_num, col_num),
+                                value_input_option="RAW",
+                            )
 
                     invalidate("roster")
                     invalidate("all_roster")
