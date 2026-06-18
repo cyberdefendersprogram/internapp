@@ -1,6 +1,6 @@
 # CDP Intern Portal
 
-Lightweight intern tracking portal for the Cyber Defenders Summer 2026 program. ~25 interns across 5 cybersecurity project tracks. Google Sheets is the system of record; auth state lives in SQLite.
+Lightweight intern tracking portal for the Cyber Defenders Summer 2026 program. ~25 interns across 7 cybersecurity project tracks. Google Sheets is the system of record; auth/notes state lives in SQLite.
 
 **Live**: https://intern.cyberdefendersprogram.com
 
@@ -13,7 +13,7 @@ Lightweight intern tracking portal for the Cyber Defenders Summer 2026 program. 
 | App server | FastAPI (Python) |
 | Templates | Jinja2 + Bulma CSS |
 | Program data | Google Sheets |
-| Auth state | SQLite |
+| Auth / meeting notes | SQLite |
 | Email | ForwardEmail REST API (`api.forwardemail.net`) |
 | Runtime | Docker |
 | Hosting | DigitalOcean droplet (shared with classapp, port 8001) |
@@ -95,6 +95,9 @@ make ssh       # SSH to droplet
 make health    # curl /health
 make restart   # restart containers
 make db-reset  # wipe SQLite (does NOT touch Sheets data)
+make db-tables # list tables in production SQLite
+make db-query Q="SELECT COUNT(*) FROM meeting_notes"  # run arbitrary SQL on prod
+make db-pull   # download prod SQLite to /tmp/internapp-prod.db
 ```
 
 ---
@@ -108,6 +111,25 @@ The service account (`internapp-sheets@internapp-497708.iam.gserviceaccount.com`
 ### Multi-track mentors and sponsors
 
 The `track_id` column in `Roster` supports comma-separated values for mentors and sponsors who span multiple tracks (e.g., `track-1,track-3`). Intern rows use a single track ID.
+
+### Scheduling links (Cal.com / Zoom)
+
+| Sheet | Column | Who sets it | Effect |
+|-------|--------|-------------|--------|
+| Roster | `cal_link` | Mentor row | "Book with Mentor" button on intern `/home` |
+| Tracks | `sponsor_cal_link` | Track row | "Book with Sponsor" button on intern `/home` |
+
+Both buttons appear only when the value is non-empty. Column position doesn't matter — lookup is by header name.
+
+### Meeting notes
+
+Mentors and admins can add meeting notes per intern at `/admin/intern/{id}`. Notes have:
+- **Type**: `mentor_1on1`, `sponsor_checkin`, or `other`
+- **Visibility**: `all` (intern + sponsor can read) or `mentor_admin` (private)
+- Sponsor check-in notes with `visibility=all` appear on the sponsor intern detail page.
+- Notes with `visibility=all` appear read-only on the intern's `/home` page.
+
+Notes are stored in the `meeting_notes` SQLite table (not Sheets), because Sheets handles multi-line text poorly.
 
 ### Seeding tasks
 

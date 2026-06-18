@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from app.models.intern import InternEntry
+from app.models.intern import InternEntry, _parse_datetime
 from app.models.track import TrackEntry
 
 
@@ -239,3 +239,91 @@ class TestTrackEntry:
         assert track.description == ""
         assert track.employer_sponsor == ""
         assert track.sponsor_email == ""
+
+    def test_sponsor_cal_link_present(self):
+        """sponsor_cal_link is read from row."""
+        row = {
+            "track_id": "t1",
+            "name": "Test",
+            "sponsor_cal_link": "https://cal.com/sponsor/30min",
+        }
+        track = TrackEntry.from_row(row)
+        assert track.sponsor_cal_link == "https://cal.com/sponsor/30min"
+
+    def test_sponsor_cal_link_absent_defaults_empty(self):
+        """sponsor_cal_link defaults to empty string when column is missing."""
+        row = {"track_id": "t1", "name": "Test"}
+        track = TrackEntry.from_row(row)
+        assert track.sponsor_cal_link == ""
+
+
+class TestParseDatetime:
+    """Tests for _parse_datetime — covers Sheets timestamp quirks."""
+
+    def test_iso_with_t(self):
+        """Standard ISO string parses correctly."""
+        dt = _parse_datetime("2026-06-15T10:30:45")
+        assert dt == datetime(2026, 6, 15, 10, 30, 45)
+
+    def test_iso_with_microseconds(self):
+        """ISO string with microseconds parses correctly."""
+        dt = _parse_datetime("2026-06-15T10:30:45.123456")
+        assert dt is not None
+        assert dt.year == 2026 and dt.hour == 10
+
+    def test_sheets_space_separator_padded_hour(self):
+        """Sheets reformats to space-separated with padded hour."""
+        dt = _parse_datetime("2026-06-13 10:11:30")
+        assert dt == datetime(2026, 6, 13, 10, 11, 30)
+
+    def test_sheets_space_separator_single_digit_hour(self):
+        """Sheets drops leading zero on hour — the original bug for Charnnel."""
+        dt = _parse_datetime("2026-06-13 4:11:30")
+        assert dt == datetime(2026, 6, 13, 4, 11, 30)
+
+    def test_sheets_space_no_seconds(self):
+        """Sheets may omit seconds."""
+        dt = _parse_datetime("2026-06-13 9:05")
+        assert dt == datetime(2026, 6, 13, 9, 5)
+
+    def test_none_returns_none(self):
+        assert _parse_datetime(None) is None
+
+    def test_empty_string_returns_none(self):
+        assert _parse_datetime("") is None
+
+    def test_unparseable_returns_none(self):
+        assert _parse_datetime("not-a-date") is None
+
+    def test_z_suffix_parsed(self):
+        """ISO string with Z suffix parses correctly."""
+        dt = _parse_datetime("2026-06-15T10:30:45Z")
+        assert dt is not None
+        assert dt.year == 2026
+
+
+class TestCalLink:
+    """Tests for cal_link field on InternEntry."""
+
+    def test_cal_link_present(self):
+        """cal_link is read from row."""
+        row = {
+            "intern_id": "CDP-M-01",
+            "full_name": "Mentor, Bob",
+            "role": "mentor",
+            "cal_link": "https://cal.com/bob/30min",
+        }
+        intern = InternEntry.from_row(row)
+        assert intern.cal_link == "https://cal.com/bob/30min"
+
+    def test_cal_link_absent_is_none(self):
+        """cal_link defaults to None when column is missing."""
+        row = {"intern_id": "CDP-001", "full_name": "Test"}
+        intern = InternEntry.from_row(row)
+        assert intern.cal_link is None
+
+    def test_cal_link_empty_string_is_none(self):
+        """Empty cal_link becomes None."""
+        row = {"intern_id": "CDP-001", "full_name": "Test", "cal_link": ""}
+        intern = InternEntry.from_row(row)
+        assert intern.cal_link is None

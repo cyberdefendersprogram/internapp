@@ -122,13 +122,13 @@ DB_PATH      = /var/lib/internapp/app.db
 
 db:
 	sshpass -p '$(VM_PASSWORD)' ssh -tt -o StrictHostKeyChecking=no root@$(VM_IP) \
-	  "docker exec -it $(DB_CONTAINER) sqlite3 $(DB_PATH)"
+	  "docker exec -it $(DB_CONTAINER) python3 -c \"import sqlite3,sys; conn=sqlite3.connect('$(DB_PATH)'); conn.isolation_level=None; [print(r) for r in conn.execute(sys.stdin.read()).fetchall()]\" "
 
 db-tables:
-	@$(SSH_CMD) "docker exec $(DB_CONTAINER) sqlite3 $(DB_PATH) '.tables'"
+	@$(SSH_CMD) "docker exec $(DB_CONTAINER) python3 -c \"import sqlite3; conn=sqlite3.connect('$(DB_PATH)'); rows=conn.execute(\\\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name\\\").fetchall(); [print(r[0]) for r in rows]\""
 
 db-query:
-	@$(SSH_CMD) "docker exec $(DB_CONTAINER) sqlite3 -column -header $(DB_PATH) '$(Q)'"
+	@$(SSH_CMD) "docker exec $(DB_CONTAINER) python3 -c \"import sqlite3; conn=sqlite3.connect('$(DB_PATH)'); conn.row_factory=sqlite3.Row; rows=conn.execute(\\\"$(Q)\\\").fetchall(); [print(dict(r)) for r in rows]\""
 
 db-pull:
 	@echo "Downloading production SQLite db..."
