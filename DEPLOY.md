@@ -115,18 +115,6 @@ Watch progress at: https://github.com/cyberdefendersprogram/internapp/actions
 
 ---
 
-## Updating a single env var
-
-Use the GitHub Actions workflow to update one env var on prod without an SSH session:
-
-```
-GitHub → Actions → "Update prod .env" → Run workflow
-```
-
-Enter the `key` (e.g. `LINEAR_API_KEY`) and `value`. The workflow SSHes in, updates the line, and restarts the container.
-
----
-
 ## Setting up the Linear webhook
 
 After deploying:
@@ -135,7 +123,7 @@ After deploying:
 2. URL: `https://intern.cyberdefendersprogram.com/api/linear/webhook`
 3. Events: **Issue** (created, updated) and **Comment** (created)
 4. Copy the signing secret
-5. Use the "Update prod .env" workflow to set `LINEAR_WEBHOOK_SECRET=<secret>`
+5. SSH into the droplet and add `LINEAR_WEBHOOK_SECRET=<secret>` to `/opt/internapp/env/.env`, then `docker compose up -d`
 
 ---
 

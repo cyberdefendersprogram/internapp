@@ -93,12 +93,6 @@ App is at http://localhost:8001. Health check: http://localhost:8001/health.
 Push to `main` — GitHub Actions builds the image, pushes to GHCR, and SSHs to the droplet.
 The droplet runs `docker compose pull && docker compose up -d`.
 
-To update a single env var on prod without pushing code:
-
-```
-GitHub → Actions → "Update prod .env" → Run workflow → enter KEY and VALUE
-```
-
 See [DEPLOY.md](DEPLOY.md) for the full setup guide.
 
 ```bash
