@@ -223,56 +223,6 @@ async def admin_edit_note(
     return RedirectResponse(url=f"/admin/intern/{intern_id}?note_saved=1", status_code=303)
 
 
-@router.get("/attendance", response_class=HTMLResponse)
-async def attendance_page(request: Request, session: AdminSession):
-    """Attendance log and entry form."""
-    sheets = get_sheets_client()
-    week_number = compute_week_number(sheets)
-
-    attendance = sheets.get_attendance()
-    all_interns = sheets.get_all_roster()
-    claimed_interns = [i for i in all_interns if i.is_claimed]
-
-    return templates.TemplateResponse(
-        "admin_attendance.html",
-        {
-            "request": request,
-            "attendance": sorted(attendance, key=lambda a: a.get("session_date", ""), reverse=True),
-            "interns": claimed_interns,
-            "week_number": week_number,
-            "error": None,
-            "success": None,
-        },
-    )
-
-
-@router.post("/attendance", response_class=HTMLResponse)
-async def attendance_submit(
-    request: Request,
-    session: AdminSession,
-    session_date: str = Form(...),
-    session_type: str = Form(...),
-    intern_id: str = Form(...),
-    present: str = Form("FALSE"),
-    notes: str = Form(""),
-):
-    """Log attendance."""
-    sheets = get_sheets_client()
-
-    data = {
-        "session_date": session_date,
-        "session_type": session_type,
-        "intern_id": intern_id,
-        "present": "TRUE" if present in ("true", "TRUE", "1", "on") else "FALSE",
-        "notes": notes.strip(),
-    }
-
-    sheets.append_attendance(data)
-    logger.info("Attendance logged: %s on %s", intern_id, session_date)
-
-    return RedirectResponse(url="/admin/attendance?submitted=1", status_code=302)
-
-
 @router.get("/email", response_class=HTMLResponse)
 async def email_composer(request: Request, session: AdminSession):
     """Email composer with audience picker and template picker."""

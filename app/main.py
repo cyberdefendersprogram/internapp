@@ -20,8 +20,6 @@ from app.routers import (
     program,
     sponsor,
 )
-from app.routers.tasks import bot_router
-from app.routers.tasks import router as tasks_router
 from app.services.sessions import COOKIE_NAME
 
 # Configure logging
@@ -65,8 +63,6 @@ app.include_router(sponsor.router)
 app.include_router(admin.router)
 app.include_router(applicants.router)
 app.include_router(program.router)
-app.include_router(tasks_router)
-app.include_router(bot_router)
 app.include_router(linear_api.router)
 
 

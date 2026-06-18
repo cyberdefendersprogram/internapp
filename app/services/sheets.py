@@ -32,7 +32,6 @@ CACHE_TTL_TRACKS = 900  # 15 minutes
 CACHE_TTL_ROSTER = 600  # 10 minutes
 CACHE_TTL_CHECKINS = 300  # 5 minutes
 CACHE_TTL_DELIVERABLES = 300  # 5 minutes
-CACHE_TTL_ATTENDANCE = 300  # 5 minutes
 CACHE_TTL_FEEDBACK = 300  # 5 minutes
 
 
@@ -377,36 +376,6 @@ class SheetsClient:
             return False
 
     # -------------------------------------------------------------------------
-    # Attendance methods
-    # -------------------------------------------------------------------------
-
-    @cached(ttl_seconds=CACHE_TTL_ATTENDANCE, prefix="attendance")
-    def get_attendance(self) -> list[dict]:
-        """Get all attendance records."""
-        try:
-            worksheet = self._get_worksheet("Attendance")
-            return worksheet.get_all_records()
-        except Exception as e:
-            logger.error("Failed to get attendance: %s", e)
-            return []
-
-    def append_attendance(self, data: dict) -> bool:
-        """Append an attendance row."""
-        try:
-            worksheet = self._get_worksheet("Attendance")
-            headers = worksheet.row_values(1)
-            row = [data.get(h, "") for h in headers]
-            worksheet.append_row(row, value_input_option="RAW")
-            invalidate("attendance")
-            logger.info(
-                "Appended attendance: %s on %s", data.get("intern_id"), data.get("session_date")
-            )
-            return True
-        except Exception as e:
-            logger.error("Failed to append attendance: %s", e)
-            return False
-
-    # -------------------------------------------------------------------------
     # Email log methods
     # -------------------------------------------------------------------------
 
@@ -635,162 +604,6 @@ class SheetsClient:
         except Exception as e:
             logger.error("Failed to upsert feedback for row %s: %s", applicant_row, e)
             return False
-
-    # -------------------------------------------------------------------------
-    # Task methods
-    # -------------------------------------------------------------------------
-
-    CACHE_TTL_TASKS = 120  # 2 minutes
-
-    @cached(ttl_seconds=120, prefix="tasks_intern")
-    @cached(ttl_seconds=120, prefix="tasks_intern")
-    def get_tasks_for_intern(self, intern_id: str) -> list:
-        """Get all tasks assigned to an intern."""
-        from app.models.task import TaskEntry
-
-        try:
-            worksheet = self._get_worksheet("Tasks")
-            records = worksheet.get_all_records()
-            return [
-                TaskEntry.from_row(r)
-                for r in records
-                if str(r.get("assigned_to")) == str(intern_id)
-            ]
-        except Exception as e:
-            logger.error("Failed to get tasks for %s: %s", intern_id, e)
-            return []
-
-    @cached(ttl_seconds=120, prefix="tasks_track")
-    def get_tasks_for_track(self, track_id: str) -> list:
-        """Get all tasks for a track (assigned to track:track_id or any intern in track)."""
-        from app.models.task import TaskEntry
-
-        try:
-            worksheet = self._get_worksheet("Tasks")
-            records = worksheet.get_all_records()
-            return [
-                TaskEntry.from_row(r) for r in records if str(r.get("track_id")) == str(track_id)
-            ]
-        except Exception as e:
-            logger.error("Failed to get tasks for track %s: %s", track_id, e)
-            return []
-
-    @cached(ttl_seconds=120, prefix="tasks_all")
-    def get_all_tasks(self) -> list:
-        """Get all tasks (admin view)."""
-        from app.models.task import TaskEntry
-
-        try:
-            worksheet = self._get_worksheet("Tasks")
-            records = worksheet.get_all_records()
-            return [TaskEntry.from_row(r) for r in records if r.get("task_id")]
-        except Exception as e:
-            logger.error("Failed to get all tasks: %s", e)
-            return []
-
-    def create_task(self, task) -> bool:
-        """Append a new task row."""
-        try:
-            worksheet = self._get_worksheet("Tasks")
-            headers = worksheet.row_values(1)
-            row = task.to_row(headers)
-            worksheet.append_row(row, value_input_option="RAW")
-            invalidate("tasks_intern")
-            invalidate("tasks_track")
-            invalidate("tasks_all")
-            logger.info("Created task %s: %s", task.task_id, task.title)
-            return True
-        except Exception as e:
-            logger.error("Failed to create task %s: %s", task.task_id, e)
-            return False
-
-    def update_task_status(
-        self,
-        task_id: str,
-        status: str,
-        skip_reason: str = "",
-        completed_at: str = "",
-    ) -> bool:
-        """Update a task's status fields."""
-        try:
-            worksheet = self._get_worksheet("Tasks")
-            records = worksheet.get_all_records()
-            headers = worksheet.row_values(1)
-
-            for idx, record in enumerate(records):
-                if str(record.get("task_id")) == str(task_id):
-                    row_num = idx + 2
-                    status_col = headers.index("status") + 1
-                    worksheet.update_cell(row_num, status_col, status)
-
-                    if "skip_reason" in headers and skip_reason:
-                        col = headers.index("skip_reason") + 1
-                        worksheet.update_cell(row_num, col, skip_reason)
-
-                    if "completed_at" in headers:
-                        col = headers.index("completed_at") + 1
-                        worksheet.update_cell(
-                            row_num,
-                            col,
-                            completed_at or datetime.utcnow().isoformat(),
-                        )
-
-                    invalidate("tasks_intern")
-                    invalidate("tasks_track")
-                    invalidate("tasks_all")
-                    logger.info("Updated task %s → %s", task_id, status)
-                    return True
-
-            logger.warning("Task not found: %s", task_id)
-            return False
-        except Exception as e:
-            logger.error("Failed to update task %s: %s", task_id, e)
-            return False
-
-    def complete_linked_tasks(
-        self, intern_id: str, week_number: int | None, linked_feature: str
-    ) -> int:
-        """Auto-complete matching linked tasks when a feature is submitted. Returns count completed."""
-        try:
-            worksheet = self._get_worksheet("Tasks")
-            records = worksheet.get_all_records()
-            headers = worksheet.row_values(1)
-            completed = 0
-
-            for idx, record in enumerate(records):
-                if (
-                    str(record.get("assigned_to")) == str(intern_id)
-                    and str(record.get("linked_feature")) == linked_feature
-                    and str(record.get("status")) == "todo"
-                    and (
-                        week_number is None
-                        or str(record.get("due_week")) == str(week_number)
-                        or str(record.get("week_number")) == str(week_number)
-                    )
-                ):
-                    row_num = idx + 2
-                    status_col = headers.index("status") + 1
-                    worksheet.update_cell(row_num, status_col, "done")
-                    if "completed_at" in headers:
-                        col = headers.index("completed_at") + 1
-                        worksheet.update_cell(row_num, col, datetime.utcnow().isoformat())
-                    completed += 1
-
-            if completed:
-                invalidate("tasks_intern")
-                invalidate("tasks_track")
-                invalidate("tasks_all")
-                logger.info(
-                    "Auto-completed %d %s task(s) for %s week %s",
-                    completed,
-                    linked_feature,
-                    intern_id,
-                    week_number,
-                )
-            return completed
-        except Exception as e:
-            logger.error("Failed to complete linked tasks for %s: %s", intern_id, e)
-            return 0
 
     # -------------------------------------------------------------------------
     # Discord identity linking methods
