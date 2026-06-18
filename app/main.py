@@ -2,12 +2,14 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.sqlite import init_db
+from app.jobs.reminders import send_checkin_reminders
 from app.routers import (
     admin,
     applicants,
@@ -30,13 +32,32 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+scheduler = BackgroundScheduler(timezone="America/Los_Angeles")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown events."""
     logger.info("Initializing database...")
     init_db()
     logger.info("Database initialized")
+
+    # Thursday noon PT — remind interns who haven't checked in yet
+    scheduler.add_job(
+        send_checkin_reminders,
+        trigger="cron",
+        day_of_week="thu",
+        hour=12,
+        minute=0,
+        id="thursday_checkin_reminder",
+        replace_existing=True,
+    )
+    scheduler.start()
+    logger.info("Scheduler started — Thursday check-in reminders active")
+
     yield
+
+    scheduler.shutdown(wait=False)
     logger.info("Shutting down...")
 
 

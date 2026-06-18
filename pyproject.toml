@@ -12,6 +12,8 @@ dependencies = [
     "jinja2==3.1.4",
     "python-multipart==0.0.18",
     "pydantic-settings==2.6.0",
+    "apscheduler>=3.11.2",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

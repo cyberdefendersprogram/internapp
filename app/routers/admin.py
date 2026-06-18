@@ -555,6 +555,16 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
     )
 
 
+@router.post("/discord/send-reminders")
+async def discord_send_reminders(request: Request, session: AdminSession):
+    """Manually trigger check-in reminder DMs — same logic as the Thursday cron job."""
+    from app.jobs.reminders import send_checkin_reminders  # noqa: PLC0415
+
+    result = send_checkin_reminders()
+    logger.info("Manual reminder trigger by %s: %s", session.email, result)
+    return JSONResponse(result)
+
+
 @router.post("/cache/clear")
 async def cache_clear(request: Request, session: AdminSession):
     """Flush the in-memory cache so the next request re-reads from Google Sheets."""

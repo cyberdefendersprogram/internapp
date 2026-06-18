@@ -76,6 +76,10 @@
   <h1 class="title cdp-heading" style="margin:0;">Admin Dashboard</h1>
   <div style="display:flex;align-items:center;gap:8px;">
     <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">Week {{ week_number }}</span>
+    <button id="reminder-btn" class="button is-small is-info is-light"
+            title="Send Discord DMs to interns who haven't checked in this week">
+      Send Reminders
+    </button>
     <button id="cache-clear-btn" class="button is-small is-warning is-light"
             title="Flush in-memory cache so the next page load re-reads from Google Sheets">
       Clear Cache
@@ -84,6 +88,29 @@
 </div>
 <div id="cache-clear-msg" style="display:none;margin-bottom:1rem;"></div>
 <script>
+document.getElementById('reminder-btn').addEventListener('click', async function() {
+  this.classList.add('is-loading');
+  try {
+    const res = await fetch('/admin/discord/send-reminders', {method: 'POST'});
+    const data = await res.json();
+    const msg = document.getElementById('cache-clear-msg');
+    const sent = data.sent.length, skipped = data.already_checked_in.length, failed = data.failed.length;
+    msg.innerHTML = `<div class="notification is-info is-light" style="padding:.5rem 1rem;font-size:13px;">
+      Reminders sent: <strong>${sent}</strong> &nbsp;|&nbsp;
+      Already checked in: <strong>${skipped}</strong> &nbsp;|&nbsp;
+      Failed/no Discord: <strong>${failed}</strong>
+      ${data.sent.length ? '<br>Sent to: ' + data.sent.join(', ') : ''}
+      ${data.failed.length ? '<br>Failed: ' + data.failed.join(', ') : ''}
+    </div>`;
+    msg.style.display = 'block';
+  } catch(e) {
+    const msg = document.getElementById('cache-clear-msg');
+    msg.innerHTML = '<div class="notification is-danger is-light" style="padding:.5rem 1rem;font-size:13px;">Failed to send reminders.</div>';
+    msg.style.display = 'block';
+  }
+  this.classList.remove('is-loading');
+});
+
 document.getElementById('cache-clear-btn').addEventListener('click', async function() {
   this.classList.add('is-loading');
   try {
