@@ -67,12 +67,10 @@ async def home(request: Request, session: RequiredSession):
     track = sheets.get_track_by_id(intern.track_id)
     week_number = compute_week_number(sheets)
 
-    # Find this intern's mentor (roster row with role=mentor on the same track)
+    # All mentors mentor all tracks — collect everyone with a booking link
     all_roster = sheets.get_all_roster()
-    mentor = next(
-        (r for r in all_roster if r.role == "mentor" and intern.track_id in r.track_ids),
-        None,
-    )
+    mentors_with_cal = [r for r in all_roster if r.role in ("mentor", "admin") and r.cal_link]
+    mentor = mentors_with_cal[0] if mentors_with_cal else None
 
     # Check-in status for this week
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
@@ -103,6 +101,7 @@ async def home(request: Request, session: RequiredSession):
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
             "mentor": mentor,
+            "mentors": mentors_with_cal,
             "meeting_notes": get_notes_for_intern(intern.intern_id, visibility="all"),
             "session": request.cookies.get("session"),
         },

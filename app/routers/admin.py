@@ -531,6 +531,9 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
     )
     done_tasks = [t for t in linear_tasks if t["state_type"] == "completed"]
 
+    all_roster = sheets.get_all_roster()
+    mentors_with_cal = [r for r in all_roster if r.role in ("mentor", "admin") and r.cal_link]
+
     logger.info("Admin %s previewing intern dashboard for %s", session.email, intern_id)
     return templates.TemplateResponse(
         "home.html",
@@ -542,7 +545,8 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
             "checked_in_this_week": checked_in_this_week,
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
-            "mentor": None,
+            "mentor": mentors_with_cal[0] if mentors_with_cal else None,
+            "mentors": mentors_with_cal,
             "meeting_notes": [],
             "preview_mode": True,
             "preview_back_url": f"/admin/intern/{intern_id}",
