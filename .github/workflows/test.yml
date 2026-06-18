@@ -39,13 +39,8 @@ jobs:
           FORWARDEMAIL_USER: test@example.com
           FORWARDEMAIL_PASS: test-password
           ADMIN_EMAILS: admin@example.com
-        run: pytest --cov=app --cov-report=xml tests/
+        run: pytest tests/
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest
