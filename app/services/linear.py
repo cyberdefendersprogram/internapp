@@ -272,6 +272,48 @@ def _build_description(intern, track, tmpl: dict) -> str:
     )
 
 
+def complete_linked_tasks(intern_id: str, week_number: int | None, linked_feature: str) -> int:
+    """
+    Mark matching Linear issues as Done when an intern completes a feature action
+    (e.g. submitting a check-in marks all 'checkin' tasks for that week as Done).
+    Returns the number of issues updated.
+    """
+    from app.db.sqlite import get_linear_issues_for_intern, upsert_linear_issue  # noqa: PLC0415
+
+    issues = get_linear_issues_for_intern(intern_id, max_age_seconds=86400)  # allow stale for this
+    completed = 0
+    for issue in issues:
+        if issue.get("state_type") in ("completed", "canceled"):
+            continue
+        if issue.get("linked_feature") != linked_feature:
+            continue
+        if week_number is not None and issue.get("due_week") not in (None, week_number):
+            continue
+
+        ok = update_issue_state(issue["id"], "Done")
+        if ok:
+            upsert_linear_issue(
+                issue_id=issue["id"],
+                intern_id=intern_id,
+                template_id=issue.get("template_id", ""),
+                title=issue["title"],
+                state="Done",
+                state_type="completed",
+                url=issue.get("url", ""),
+                due_week=issue.get("due_week"),
+                linked_feature=linked_feature,
+            )
+            completed += 1
+            logger.info(
+                "Marked Linear issue %s Done for %s (%s week %s)",
+                issue["id"],
+                intern_id,
+                linked_feature,
+                week_number,
+            )
+    return completed
+
+
 def sync_intern_issues_from_linear(intern_id: str, linear_user_id: str) -> list[dict]:
     """
     Pull latest issue states from Linear for an intern and refresh the SQLite cache.

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Linear Tasks — Admin — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Roster</a>
+<a class="navbar-item is-active" href="/admin/linear">Linear Tasks</a>
+<a class="navbar-item" href="/admin/applicants">Applicants</a>
+<a class="navbar-item" href="/admin/attendance">Attendance</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/program">Public View</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block head %}
+<style>
+  .section-label {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 0.75rem;
+  }
+  .intern-table th {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .badge-count {
+    background: var(--cdp-blue);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .badge-none {
+    background: #e5e5e5;
+    color: #888;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12px;
+  }
+  .badge-warn {
+    background: #ffe08a;
+    color: #946c00;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="level mb-4">
+  <div class="level-left">
+    <div>
+      <p class="section-label">Admin / Linear</p>
+      <h1 class="title is-4 mb-0" style="color:var(--cdp-navy)">Linear Task Management</h1>
+      <p class="subtitle is-6 mt-1" style="color:#888">
+        {{ template_count }} task template{{ 's' if template_count != 1 else '' }} in Sheets
+      </p>
+    </div>
+  </div>
+  <div class="level-right">
+    <form method="post" action="/admin/linear/fanout">
+      <button class="button is-dark" type="submit">
+        Fan Out All Templates → All Interns
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if fanout_result %}
+<div class="notification is-info is-light mb-4">
+  {{ fanout_result }}
+</div>
+{% endif %}
+
+<div class="box">
+  <p class="section-label">Intern Issue Status</p>
+  <table class="table is-fullwidth is-hoverable intern-table">
+    <thead>
+      <tr>
+        <th>Intern</th>
+        <th>Track</th>
+        <th>Linear Project</th>
+        <th>Issues in Cache</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in intern_rows %}
+      <tr>
+        <td>
+          <a href="/admin/intern/{{ row.intern.intern_id }}" style="color:var(--cdp-navy);font-weight:600">
+            {{ row.intern.display_name }}
+          </a>
+          <br>
+          <small style="color:#888">{{ row.intern.preferred_email }}</small>
+        </td>
+        <td>
+          {% if row.track %}
+            {{ row.track.name }}
+          {% else %}
+            <span style="color:#ccc">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.has_project_id %}
+            <span style="color:#48c78e;font-size:12px">✓ configured</span>
+          {% else %}
+            <span class="badge-warn">no project ID</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.issue_count > 0 %}
+            <span class="badge-count">{{ row.issue_count }}</span>
+          {% else %}
+            <span class="badge-none">0</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.has_project_id %}
+          <form method="post" action="/admin/linear/fanout" style="display:inline">
+            <input type="hidden" name="intern_id" value="{{ row.intern.intern_id }}">
+            <button class="button is-small is-light" type="submit">Fan out</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

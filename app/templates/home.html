@@ -124,13 +124,13 @@
       </div>
     </div>
 
-    <!-- Tasks -->
+    <!-- Tasks (from Linear) -->
     <div class="card is-detail mb-4">
       <div class="card-content">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
           <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin:0;">
             Tasks
-            {% if todo_tasks %}<span data-task-count style="color:#aaa;font-weight:400;"> ({{ todo_tasks|length }} open)</span>{% endif %}
+            {% if todo_tasks %}<span style="color:#aaa;font-weight:400;"> ({{ todo_tasks|length }} open)</span>{% endif %}
           </p>
           {% if done_tasks %}
           <span style="font-size:11px;color:#48c78e;font-weight:700;">{{ done_tasks|length }} done ✓</span>
@@ -140,18 +140,18 @@
         {% if todo_tasks %}
         <div id="task-list">
           {% for task in todo_tasks %}
-          <div class="task-item" id="task-{{ task.task_id }}">
-            <div class="task-check" onclick="markDone('{{ task.task_id }}', this)"></div>
+          <div class="task-item" id="task-{{ task.id }}">
+            <div class="task-check" onclick="markDone('{{ task.id }}', this)"></div>
             <div style="flex:1;">
               <div class="task-title">
-                {% if task.priority == 'high' %}
-                <span style="color:#FA7C91;font-size:10px;font-weight:700;margin-right:4px;">HIGH</span>
+                {% if task.state == 'In Progress' %}
+                <span style="color:#5893BC;font-size:10px;font-weight:700;margin-right:4px;">IN PROGRESS</span>
                 {% endif %}
-                {{ task.title }}
+                {% if task.url %}
+                <a href="{{ task.url }}" target="_blank" rel="noopener"
+                   style="color:inherit;text-decoration:none;" title="Open in Linear">{{ task.title }}</a>
+                {% else %}{{ task.title }}{% endif %}
               </div>
-              {% if task.description %}
-              <div class="task-meta">{{ task.description }}</div>
-              {% endif %}
               {% if task.due_week %}
               <div class="task-meta">Due: Week {{ task.due_week }}
                 {% if task.linked_feature == 'checkin' %}
@@ -170,7 +170,7 @@
         {% elif done_tasks %}
         <p class="is-size-7" style="color:#48c78e;margin-top:.5rem;">All tasks complete — great work!</p>
         {% else %}
-        <p class="is-size-7 has-text-grey mt-2">No tasks assigned yet.</p>
+        <p class="is-size-7 has-text-grey mt-2">No tasks yet. Your mentor will assign them shortly.</p>
         {% endif %}
 
         {% if done_tasks %}
@@ -179,7 +179,11 @@
           {% for task in done_tasks %}
           <div class="task-item is-done">
             <div class="task-check checked"></div>
-            <div class="task-title">{{ task.title }}</div>
+            <div class="task-title">
+              {% if task.url %}
+              <a href="{{ task.url }}" target="_blank" rel="noopener" style="color:#aaa;text-decoration:none;">{{ task.title }}</a>
+              {% else %}{{ task.title }}{% endif %}
+            </div>
           </div>
           {% endfor %}
         </details>
@@ -315,24 +319,18 @@
 
 {% block scripts %}
 <script>
-async function markDone(taskId, checkEl) {
+async function markDone(issueId, checkEl) {
   checkEl.style.opacity = '0.5';
   checkEl.style.pointerEvents = 'none';
   try {
-    const res = await fetch(`/api/tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({status: 'done', skip_reason: ''})
-    });
+    const res = await fetch(`/api/linear/issues/${issueId}/done`, {method: 'POST'});
     if (res.ok) {
-      const row = document.getElementById(`task-${taskId}`);
+      const row = document.getElementById(`task-${issueId}`);
       row.style.transition = 'opacity .3s';
       row.style.opacity = '0';
       setTimeout(() => {
         row.remove();
         const remaining = document.querySelectorAll('#task-list .task-item').length;
-        const countEl = document.querySelector('[data-task-count]');
-        if (countEl) countEl.textContent = remaining > 0 ? ` (${remaining} open)` : '';
         if (remaining === 0) {
           document.getElementById('task-list').innerHTML =
             '<p class="is-size-7" style="color:#48c78e;margin-top:.5rem;">All tasks complete — great work!</p>';

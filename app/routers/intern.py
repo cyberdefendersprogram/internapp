@@ -7,8 +7,10 @@ from datetime import date, datetime
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app.db.sqlite import get_cached_intern, set_cached_intern
+from app.db.sqlite import get_cached_intern, get_linear_issues_for_intern, set_cached_intern
 from app.dependencies import OnboardedIntern, RequiredSession, templates
+from app.services.linear import complete_linked_tasks as linear_complete
+from app.services.linear import sync_intern_issues_from_linear
 from app.services.sheets import SheetsUnavailableError, get_sheets_client
 
 logger = logging.getLogger(__name__)
@@ -84,13 +86,17 @@ async def home(request: Request, session: RequiredSession):
         reverse=True,
     )[:3]
 
-    # Tasks — split into todo and done, high-priority first
-    all_tasks = sheets.get_tasks_for_intern(intern.intern_id)
+    # Tasks from Linear — read local cache; refresh from Linear if intern has a user ID
+    linear_tasks = get_linear_issues_for_intern(intern.intern_id)
+    if not linear_tasks and intern.linear_user_id:
+        sync_intern_issues_from_linear(intern.intern_id, intern.linear_user_id)
+        linear_tasks = get_linear_issues_for_intern(intern.intern_id)
+
     todo_tasks = sorted(
-        [t for t in all_tasks if t.status == "todo"],
-        key=lambda t: (0 if t.priority == "high" else 1, t.due_week or 99),
+        [t for t in linear_tasks if t["state_type"] not in ("completed", "canceled")],
+        key=lambda t: (t.get("due_week") or 99),
     )
-    done_tasks = [t for t in all_tasks if t.status == "done"]
+    done_tasks = [t for t in linear_tasks if t["state_type"] == "completed"]
 
     return templates.TemplateResponse(
         "home.html",
@@ -178,7 +184,7 @@ async def checkin_submit(
     success = sheets.append_checkin(data)
 
     if success:
-        sheets.complete_linked_tasks(intern.intern_id, week_number, "checkin")
+        linear_complete(intern.intern_id, week_number, "checkin")
 
     if not success:
         return templates.TemplateResponse(
@@ -245,7 +251,7 @@ async def deliverables_submit(
     success = sheets.append_deliverable(data)
 
     if success:
-        sheets.complete_linked_tasks(intern.intern_id, week_number, "deliverable")
+        linear_complete(intern.intern_id, week_number, "deliverable")
 
     if not success:
         current_deliverables = sheets.get_deliverables_for_intern(intern.intern_id)

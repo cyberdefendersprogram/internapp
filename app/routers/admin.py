@@ -593,3 +593,99 @@ async def cache_clear(request: Request, session: AdminSession):
     cleared = invalidate_all()
     logger.info("Cache cleared by %s: %d entries flushed", session.email, cleared)
     return JSONResponse({"cleared": cleared, "before": stats_before})
+
+
+# ── Linear task management ────────────────────────────────────────────────────
+
+
+@router.get("/linear", response_class=HTMLResponse)
+async def linear_home(request: Request, session: AdminSession):
+    """Linear task fan-out management page."""
+    from app.db.sqlite import get_linear_issues_for_intern  # noqa: PLC0415
+
+    sheets = get_sheets_client()
+    all_roster = sheets.get_all_roster()
+    interns = [r for r in all_roster if r.role == "intern" and r.preferred_email]
+    tracks = {t.track_id: t for t in sheets.get_all_tracks()}
+
+    ws = sheets._get_worksheet("Task_Templates")
+    task_templates = ws.get_all_records()
+
+    intern_rows = []
+    for intern in interns:
+        issues = get_linear_issues_for_intern(intern.intern_id, max_age_seconds=86400)
+        track = tracks.get(intern.track_id)
+        intern_rows.append(
+            {
+                "intern": intern,
+                "track": track,
+                "issue_count": len(issues),
+                "has_project_id": bool(track and track.linear_project_id),
+            }
+        )
+
+    return templates.TemplateResponse(
+        "admin_linear.html",
+        {
+            "request": request,
+            "intern_rows": intern_rows,
+            "template_count": len(task_templates),
+            "fanout_result": request.query_params.get("result"),
+        },
+    )
+
+
+@router.post("/linear/fanout")
+async def linear_fanout(
+    request: Request,
+    session: AdminSession,
+    intern_id: str = Form(""),
+):
+    """Fan out Task_Templates to Linear issues for one intern or all interns."""
+    from app.services.linear import fanout_templates_for_intern  # noqa: PLC0415
+
+    sheets = get_sheets_client()
+    all_roster = sheets.get_all_roster()
+    tracks = {t.track_id: t for t in sheets.get_all_tracks()}
+
+    ws = sheets._get_worksheet("Task_Templates")
+    all_templates = ws.get_all_records()
+
+    if intern_id:
+        targets = [r for r in all_roster if r.intern_id == intern_id and r.role == "intern"]
+    else:
+        targets = [r for r in all_roster if r.role == "intern" and r.preferred_email]
+
+    total_created = 0
+    total_skipped = 0
+    errors = []
+
+    for intern in targets:
+        track = tracks.get(intern.track_id)
+        if not track or not track.linear_project_id:
+            errors.append(f"{intern.intern_id}: no Linear project ID for track {intern.track_id}")
+            continue
+
+        # Filter templates by track (blank track_id = all tracks)
+        applicable = [
+            t
+            for t in all_templates
+            if not t.get("assigned_to") or t.get("assigned_to") in ("all", intern.track_id)
+        ]
+
+        created = fanout_templates_for_intern(intern, track, applicable)
+        skipped = len(applicable) - len(created)
+        total_created += len(created)
+        total_skipped += skipped
+        logger.info(
+            "Linear fanout for %s: %d created, %d skipped",
+            intern.intern_id,
+            len(created),
+            skipped,
+        )
+
+    result = f"Created {total_created} issues, skipped {total_skipped} existing"
+    if errors:
+        result += f" | Errors: {'; '.join(errors)}"
+    logger.info("Linear fanout by %s: %s", session.email, result)
+    return RedirectResponse(url=f"/admin/linear?result={result}", status_code=302)
