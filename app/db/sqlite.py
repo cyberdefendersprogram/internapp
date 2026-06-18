@@ -61,7 +61,26 @@ CREATE INDEX IF NOT EXISTS idx_meeting_notes_intern ON meeting_notes(intern_id);
 CREATE INDEX IF NOT EXISTS idx_meeting_notes_type   ON meeting_notes(meeting_type);
 """
 
+SCHEMA_LINEAR_ISSUES = """
+CREATE TABLE IF NOT EXISTS linear_issues (
+    id              TEXT PRIMARY KEY,      -- Linear issue ID (UUID)
+    intern_id       TEXT NOT NULL,
+    template_id     TEXT NOT NULL DEFAULT '',
+    title           TEXT NOT NULL,
+    state           TEXT NOT NULL DEFAULT 'Todo',
+    state_type      TEXT NOT NULL DEFAULT 'unstarted',
+    url             TEXT NOT NULL DEFAULT '',
+    due_week        INTEGER,
+    linked_feature  TEXT NOT NULL DEFAULT '',
+    synced_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_linear_issues_intern ON linear_issues(intern_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_linear_issues_intern_tmpl ON linear_issues(intern_id, template_id)
+    WHERE template_id != '';
+"""
+
 INTERN_CACHE_TTL_SECONDS = 900  # 15 minutes — reduces Sheets API call frequency
+LINEAR_ISSUE_TTL_SECONDS = 300  # 5 minutes — issue state cache
 
 
 def init_db() -> None:
@@ -74,6 +93,7 @@ def init_db() -> None:
         db.executescript(SCHEMA_RATE_LIMITS)
         db.executescript(SCHEMA_INTERN_CACHE)
         db.executescript(SCHEMA_MEETING_NOTES)
+        db.executescript(SCHEMA_LINEAR_ISSUES)
 
 
 @contextmanager
@@ -254,3 +274,77 @@ def update_meeting_note(
             (notes, action_items, visibility, meeting_date, week_number, now, note_id),
         )
     return cursor.rowcount > 0
+
+
+# ── Linear issue cache ────────────────────────────────────────────────────────
+
+
+def upsert_linear_issue(
+    *,
+    issue_id: str,
+    intern_id: str,
+    template_id: str,
+    title: str,
+    state: str,
+    state_type: str,
+    url: str,
+    due_week: int | None,
+    linked_feature: str,
+) -> None:
+    """Insert or update a cached Linear issue."""
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO linear_issues
+               (id, intern_id, template_id, title, state, state_type, url, due_week, linked_feature, synced_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                   state = excluded.state,
+                   state_type = excluded.state_type,
+                   url = excluded.url,
+                   synced_at = excluded.synced_at""",
+            (
+                issue_id,
+                intern_id,
+                template_id,
+                title,
+                state,
+                state_type,
+                url,
+                due_week,
+                linked_feature,
+                now,
+            ),
+        )
+
+
+def get_linear_issues_for_intern(
+    intern_id: str, max_age_seconds: int = LINEAR_ISSUE_TTL_SECONDS
+) -> list[dict]:
+    """Return cached Linear issues for an intern, or empty list if stale/missing."""
+    cutoff = (datetime.utcnow() - timedelta(seconds=max_age_seconds)).isoformat()
+    with get_db() as db:
+        rows = db.execute(
+            """SELECT * FROM linear_issues
+               WHERE intern_id = ? AND synced_at > ?
+               ORDER BY due_week ASC, title ASC""",
+            (intern_id, cutoff),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_linear_issue_by_intern_template(intern_id: str, template_id: str) -> dict | None:
+    """Check if a specific template issue already exists for an intern."""
+    with get_db() as db:
+        row = db.execute(
+            "SELECT * FROM linear_issues WHERE intern_id = ? AND template_id = ?",
+            (intern_id, template_id),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_linear_issues_for_intern(intern_id: str) -> int:
+    """Remove all cached Linear issues for an intern. Returns deleted count."""
+    with get_db() as db:
+        cursor = db.execute("DELETE FROM linear_issues WHERE intern_id = ?", (intern_id,))
+    return cursor.rowcount

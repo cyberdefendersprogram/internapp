@@ -25,6 +25,7 @@ class InternEntry:
     discord_id: str | None = None
     discord_notify: bool = True
     cal_link: str | None = None
+    linear_user_id: str | None = None
 
     @property
     def track_ids(self) -> list[str]:
@@ -83,6 +84,7 @@ class InternEntry:
             discord_id=row.get("discord_id") or None,
             discord_notify=str(row.get("discord_notify", "true")).lower() not in ("false", "0", ""),
             cal_link=row.get("cal_link") or None,
+            linear_user_id=row.get("linear_user_id") or None,
         )
 
     def get_empty_profile_fields(self) -> list[str]:

@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     # Discord bot token (used as BOT_API_KEY for OpenClaw → FastAPI auth)
     discord_cdpbot_token: str = ""
 
+    # Linear
+    linear_api_key: str = ""
+    linear_team_id: str = "9e576d33-679d-4268-ad77-360ff1d71ca8"
+
     # SQLite
     sqlite_path: str = "data/app.db"
 
