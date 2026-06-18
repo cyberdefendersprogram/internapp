@@ -343,6 +343,13 @@ def get_linear_issue_by_intern_template(intern_id: str, template_id: str) -> dic
     return dict(row) if row else None
 
 
+def get_linear_issue_by_id(issue_id: str) -> dict | None:
+    """Look up a cached Linear issue by its Linear issue ID."""
+    with get_db() as db:
+        row = db.execute("SELECT * FROM linear_issues WHERE id = ?", (issue_id,)).fetchone()
+    return dict(row) if row else None
+
+
 def delete_linear_issues_for_intern(intern_id: str) -> int:
     """Remove all cached Linear issues for an intern. Returns deleted count."""
     with get_db() as db:

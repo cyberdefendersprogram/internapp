@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # Linear
     linear_api_key: str = ""
     linear_team_id: str = "9e576d33-679d-4268-ad77-360ff1d71ca8"
+    linear_webhook_secret: str = ""
 
     # SQLite
     sqlite_path: str = "data/app.db"
