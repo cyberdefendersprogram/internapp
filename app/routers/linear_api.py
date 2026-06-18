@@ -187,16 +187,23 @@ def _resolve_intern_from_issue(issue_id: str, assignee_linear_id: str | None):
 async def _handle_comment_event(data: dict) -> None:
     from app.services.discord import send_dm  # noqa: PLC0415
 
-    issue_id = data.get("issue", {}).get("id", "")
-    issue_title = data.get("issue", {}).get("title", "")
-    issue_url = data.get("issue", {}).get("url", "")
+    issue = data.get("issue") or {}
+    issue_id = issue.get("id", "")
+    issue_title = issue.get("title", "")
+    issue_url = issue.get("url", "")
     author_id = data.get("user", {}).get("id", "")
+    assignee_linear_id = issue.get("assignee", {}).get("id")
 
     if not issue_id:
         return
 
-    intern, _ = _resolve_intern_from_issue(issue_id, None)
+    intern, _ = _resolve_intern_from_issue(issue_id, assignee_linear_id)
     if not intern or not intern.discord_id:
+        logger.warning(
+            "Webhook comment: no intern resolved for issue %s (assignee_linear_id=%s)",
+            issue_id,
+            assignee_linear_id,
+        )
         return
 
     # Don't DM the intern about their own comments
@@ -204,4 +211,10 @@ async def _handle_comment_event(data: dict) -> None:
         return
 
     msg = _DM_TEMPLATES["comment"].format(title=issue_title, url=issue_url)
-    send_dm(intern.discord_id, msg)
+    ok = send_dm(intern.discord_id, msg)
+    logger.info(
+        "Webhook comment DM to %s (%s): %s",
+        intern.intern_id,
+        intern.discord_id,
+        "ok" if ok else "failed",
+    )
