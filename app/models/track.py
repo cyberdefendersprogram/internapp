@@ -14,6 +14,7 @@ class TrackEntry:
     sponsor_email: str = ""
     sponsor_cal_link: str = ""
     linear_project_id: str = ""
+    project_url: str = ""
     status: str = "active"
 
     @property
@@ -32,5 +33,6 @@ class TrackEntry:
             sponsor_email=row.get("sponsor_email", ""),
             sponsor_cal_link=row.get("sponsor_cal_link", ""),
             linear_project_id=row.get("linear_project_id", ""),
+            project_url=row.get("project_url", ""),
             status=row.get("status", "active"),
         )

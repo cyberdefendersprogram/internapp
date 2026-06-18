@@ -63,14 +63,26 @@
           <div class="card is-track">
             <div class="card-content">
               <h3 class="title is-5 has-text-cdp-navy" style="color:var(--cdp-navy);margin-bottom:4px;">
-                {{ td.track.name }}
+                {% if td.track.project_url %}
+                <a href="{{ td.track.project_url }}" target="_blank" rel="noopener" style="color:var(--cdp-navy);">{{ td.track.name }}</a>
+                {% else %}{{ td.track.name }}{% endif %}
               </h3>
+              {% if td.track.employer_sponsor and td.track.employer_sponsor != 'TBD' %}
               <p style="color:#888;font-size:13px;margin-bottom:8px;">
-                Mentor: <strong>{{ td.track.employer_sponsor }}</strong>
+                Sponsor: <strong>{{ td.track.employer_sponsor }}</strong>
               </p>
-              <p style="color:#555;font-size:13px;margin-bottom:16px;">
+              {% endif %}
+              <p style="color:#555;font-size:13px;margin-bottom:8px;">
                 {{ td.track.description[:200] }}{% if td.track.description|length > 200 %}…{% endif %}
               </p>
+              {% if td.track.project_url %}
+              <p style="margin-bottom:12px;">
+                <a href="{{ td.track.project_url }}" target="_blank" rel="noopener"
+                   style="font-size:12px;color:var(--cdp-blue);font-family:'Roboto Mono',monospace;">
+                  View full track details →
+                </a>
+              </p>
+              {% endif %}
               <h4 class="cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:8px;">INTERNS</h4>
               {% for intern_entry in td.interns %}
               <div style="margin-bottom:12px;padding-left:8px;border-left:2px solid var(--cdp-light);">
