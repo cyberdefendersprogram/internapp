@@ -21,13 +21,47 @@
     color: #888;
     margin-bottom: 0.75rem;
   }
-  .intern-table th {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: #888;
+  .week-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow: hidden;
   }
+  .week-card-header {
+    background: var(--cdp-navy);
+    color: #fff;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .week-card-header h3 {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .week-card-body { padding: 12px 16px; }
+  .template-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .template-row:last-child { border-bottom: none; }
+  .tag-type {
+    font-size: 10px;
+    font-family: 'Roboto Mono', monospace;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .tag-deliverable { background: #EFF3F4; color: var(--cdp-navy); }
+  .tag-checkin { background: #e8f4fd; color: var(--cdp-blue); }
+  .tag-track { background: #fff3f5; color: #c0392b; }
   .badge-count {
     background: var(--cdp-blue);
     color: #fff;
@@ -52,6 +86,13 @@
     padding: 2px 8px;
     font-size: 11px;
   }
+  .intern-table th {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #888;
+  }
 </style>
 {% endblock %}
 
@@ -59,19 +100,12 @@
 <div class="level mb-4">
   <div class="level-left">
     <div>
-      <p class="section-label">Admin / Linear</p>
-      <h1 class="title is-4 mb-0" style="color:var(--cdp-navy)">Linear Task Management</h1>
+      <p class="section-label">Admin / Linear Tasks</p>
+      <h1 class="title is-4 mb-0" style="color:var(--cdp-navy)">Linear Task Fan-out</h1>
       <p class="subtitle is-6 mt-1" style="color:#888">
-        {{ template_count }} task template{{ 's' if template_count != 1 else '' }} in Sheets
+        {{ template_count }} template{{ 's' if template_count != 1 else '' }} across {{ weeks|length }} week{{ 's' if weeks|length != 1 else '' }}
       </p>
     </div>
-  </div>
-  <div class="level-right">
-    <form method="post" action="/admin/linear/fanout">
-      <button class="button is-dark" type="submit">
-        Fan Out All Templates → All Interns
-      </button>
-    </form>
   </div>
 </div>
 
@@ -81,60 +115,111 @@
 </div>
 {% endif %}
 
-<div class="box">
-  <p class="section-label">Intern Issue Status</p>
-  <table class="table is-fullwidth is-hoverable intern-table">
-    <thead>
-      <tr>
-        <th>Intern</th>
-        <th>Track</th>
-        <th>Linear Project</th>
-        <th>Issues in Cache</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in intern_rows %}
-      <tr>
-        <td>
-          <a href="/admin/intern/{{ row.intern.intern_id }}" style="color:var(--cdp-navy);font-weight:600">
-            {{ row.intern.display_name }}
-          </a>
-          <br>
-          <small style="color:#888">{{ row.intern.preferred_email }}</small>
-        </td>
-        <td>
-          {% if row.track %}
-            {{ row.track.name }}
+<!-- Week-by-week fan-out -->
+<div class="columns">
+  <div class="column is-two-fifths">
+    <p class="section-label">Fan Out by Week</p>
+    {% if weeks %}
+    {% for week in weeks %}
+    {% set week_templates = templates_by_week.get(week, []) %}
+    <div class="week-card">
+      <div class="week-card-header">
+        <h3>Week {{ week }}</h3>
+        <form method="post" action="/admin/linear/fanout" style="display:inline">
+          <input type="hidden" name="week_number" value="{{ week }}">
+          <button class="button is-small is-light" type="submit" style="font-size:11px;">
+            Fan out Week {{ week }} → all interns
+          </button>
+        </form>
+      </div>
+      <div class="week-card-body">
+        {% for tmpl in week_templates %}
+        <div class="template-row">
+          {% if tmpl.linked_feature == 'deliverable' %}
+          <span class="tag-type tag-deliverable">deliverable</span>
+          {% elif tmpl.linked_feature == 'checkin' %}
+          <span class="tag-type tag-checkin">check-in</span>
           {% else %}
-            <span style="color:#ccc">—</span>
+          <span class="tag-type" style="background:#f0f0f0;color:#666;">{{ tmpl.linked_feature or 'task' }}</span>
           {% endif %}
-        </td>
-        <td>
-          {% if row.has_project_id %}
-            <span style="color:#48c78e;font-size:12px">✓ configured</span>
-          {% else %}
-            <span class="badge-warn">no project ID</span>
+          <span style="flex:1;">{{ tmpl.title }}</span>
+          {% if tmpl.assigned_to and tmpl.assigned_to not in ('all', '') %}
+          <span class="tag-type tag-track">{{ tmpl.assigned_to }}</span>
           {% endif %}
-        </td>
-        <td>
-          {% if row.issue_count > 0 %}
-            <span class="badge-count">{{ row.issue_count }}</span>
-          {% else %}
-            <span class="badge-none">0</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if row.has_project_id %}
-          <form method="post" action="/admin/linear/fanout" style="display:inline">
-            <input type="hidden" name="intern_id" value="{{ row.intern.intern_id }}">
-            <button class="button is-small is-light" type="submit">Fan out</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="has-text-grey is-size-7">No templates with due_week set.</p>
+    {% endif %}
+  </div>
+
+  <!-- Intern status -->
+  <div class="column">
+    <p class="section-label">Intern Issue Status</p>
+    <div class="box" style="padding:0;overflow:hidden;">
+      <table class="table is-fullwidth is-hoverable intern-table" style="margin:0;">
+        <thead>
+          <tr>
+            <th>Intern</th>
+            <th>Track</th>
+            <th>Linear</th>
+            <th>Issues</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in intern_rows %}
+          <tr>
+            <td>
+              <a href="/admin/intern/{{ row.intern.intern_id }}" style="color:var(--cdp-navy);font-weight:600;">
+                {{ row.intern.display_name }}
+              </a>
+              <br>
+              <small style="color:#888;">{{ row.intern.preferred_email }}</small>
+            </td>
+            <td style="font-size:13px;">
+              {{ row.track.name if row.track else '—' }}
+            </td>
+            <td>
+              {% if row.has_project_id %}
+              <span style="color:#48c78e;font-size:12px;">✓</span>
+              {% else %}
+              <span class="badge-warn">no project</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if row.issue_count > 0 %}
+              <span class="badge-count">{{ row.issue_count }}</span>
+              {% else %}
+              <span class="badge-none">0</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if row.has_project_id %}
+              <details style="position:relative;">
+                <summary style="font-size:11px;color:var(--cdp-blue);cursor:pointer;list-style:none;">fan out ▾</summary>
+                <div style="position:absolute;right:0;z-index:10;background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:8px;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                  {% for week in weeks %}
+                  <form method="post" action="/admin/linear/fanout" style="margin-bottom:4px;">
+                    <input type="hidden" name="intern_id" value="{{ row.intern.intern_id }}">
+                    <input type="hidden" name="week_number" value="{{ week }}">
+                    <button class="button is-small is-fullwidth is-light" type="submit" style="font-size:11px;justify-content:flex-start;">
+                      Week {{ week }}
+                    </button>
+                  </form>
+                  {% endfor %}
+                </div>
+              </details>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}

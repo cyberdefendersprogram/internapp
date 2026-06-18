@@ -638,12 +638,21 @@ async def linear_home(request: Request, session: AdminSession):
             }
         )
 
+    # Group templates by week for the UI
+    weeks = sorted({int(t["due_week"]) for t in task_templates if t.get("due_week")})
+    templates_by_week: dict[int, list] = {}
+    for t in task_templates:
+        w = int(t["due_week"]) if t.get("due_week") else 0
+        templates_by_week.setdefault(w, []).append(t)
+
     return templates.TemplateResponse(
         "admin_linear.html",
         {
             "request": request,
             "intern_rows": intern_rows,
             "template_count": len(task_templates),
+            "weeks": weeks,
+            "templates_by_week": templates_by_week,
             "fanout_result": request.query_params.get("result"),
         },
     )
@@ -654,8 +663,9 @@ async def linear_fanout(
     request: Request,
     session: AdminSession,
     intern_id: str = Form(""),
+    week_number: int = Form(0),
 ):
-    """Fan out Task_Templates to Linear issues for one intern or all interns."""
+    """Fan out Task_Templates to Linear issues for one intern or all interns, optionally filtered by week."""
     from app.services.linear import fanout_templates_for_intern  # noqa: PLC0415
 
     sheets = get_sheets_client()
@@ -664,6 +674,9 @@ async def linear_fanout(
 
     ws = sheets._get_worksheet("Task_Templates")
     all_templates = ws.get_all_records()
+
+    if week_number:
+        all_templates = [t for t in all_templates if int(t.get("due_week") or 0) == week_number]
 
     if intern_id:
         targets = [r for r in all_roster if r.intern_id == intern_id and r.role == "intern"]
@@ -680,7 +693,6 @@ async def linear_fanout(
             errors.append(f"{intern.intern_id}: no Linear project ID for track {intern.track_id}")
             continue
 
-        # Filter templates by track (blank track_id = all tracks)
         applicable = [
             t
             for t in all_templates
@@ -698,8 +710,9 @@ async def linear_fanout(
             skipped,
         )
 
-    result = f"Created {total_created} issues, skipped {total_skipped} existing"
+    week_label = f"Week {week_number}" if week_number else "all weeks"
+    result = f"Week {week_number if week_number else 'all'}: created {total_created} issues, skipped {total_skipped} existing"
     if errors:
         result += f" | Errors: {'; '.join(errors)}"
-    logger.info("Linear fanout by %s: %s", session.email, result)
+    logger.info("Linear fanout (%s) by %s: %s", week_label, session.email, result)
     return RedirectResponse(url=f"/admin/linear?result={result}", status_code=302)

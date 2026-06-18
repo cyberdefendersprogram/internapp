@@ -27,7 +27,7 @@
 
         {% if open_tasks %}
         <p class="is-size-7 has-text-grey mb-3">
-          Paste the link to your artifact below. It will be attached to your open deliverable task in Linear and marked Done.
+          Select the task, paste your artifact link (if there is one), and submit. The task will be marked Done in Linear.
         </p>
         <form method="post" action="/deliverables">
           <div class="field">
@@ -46,11 +46,11 @@
             </div>
           </div>
           <div class="field">
-            <label class="label">Artifact URL <span class="has-text-danger">*</span></label>
+            <label class="label">Artifact URL <span class="has-text-grey is-size-7">(optional)</span></label>
             <div class="control">
-              <input class="input" type="url" name="url" placeholder="https://github.com/..." required>
+              <input class="input" type="url" name="url" placeholder="https://github.com/...">
             </div>
-            <p class="help">Link to your GitHub repo, Google Doc, write-up, or other artifact.</p>
+            <p class="help">Link to your GitHub repo, Google Doc, write-up, or other artifact. Leave blank if the task has no deliverable link.</p>
           </div>
           <div class="field">
             <label class="label">Notes <span class="has-text-grey is-size-7">(optional)</span></label>
@@ -61,7 +61,7 @@
           </div>
           <div class="field">
             <div class="control">
-              <button type="submit" class="button is-primary">Submit Deliverable</button>
+              <button type="submit" class="button is-primary">Mark Done</button>
             </div>
           </div>
         </form>

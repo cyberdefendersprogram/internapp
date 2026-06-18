@@ -237,11 +237,11 @@ async def deliverables_page(request: Request, intern: OnboardedIntern):
 async def deliverables_submit(
     request: Request,
     intern: OnboardedIntern,
-    url: str = Form(...),
+    url: str = Form(""),
     description: str = Form(""),
     week_number: int = Form(...),
 ):
-    """Attach artifact URL to matching Linear deliverable task and mark it Done."""
+    """Mark a Linear deliverable task Done, optionally attaching an artifact URL."""
     from app.db.sqlite import upsert_linear_issue  # noqa: PLC0415
     from app.services.linear import (  # noqa: PLC0415
         STATE_TYPES,
@@ -277,11 +277,15 @@ async def deliverables_submit(
             "Ask your mentor to assign one in Linear."
         )
 
-    comment_body = f"**Deliverable submitted**\n\n**Link:** {url.strip()}"
-    if description.strip():
-        comment_body += f"\n\n{description.strip()}"
-
-    comment_on_issue(task["id"], comment_body)
+    url_clean = url.strip()
+    description_clean = description.strip()
+    if url_clean or description_clean:
+        comment_parts = ["**Deliverable submitted**"]
+        if url_clean:
+            comment_parts.append(f"\n\n**Link:** {url_clean}")
+        if description_clean:
+            comment_parts.append(f"\n\n{description_clean}")
+        comment_on_issue(task["id"], "".join(comment_parts))
 
     ok = update_issue_state(task["id"], "Done")
     if not ok:
