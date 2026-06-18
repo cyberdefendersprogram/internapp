@@ -54,8 +54,8 @@ def _run(query: str, variables: dict | None = None) -> dict[str, Any]:
 # ── Read ──────────────────────────────────────────────────────────────────────
 
 
-def get_user_by_email(email: str) -> str | None:
-    """Return Linear user ID for an email address, or None if not a member."""
+def get_user_by_email(email: str) -> dict | None:
+    """Return Linear user dict {id, name, email} for an email, or None if not a member."""
     q = """
     query UserByEmail($email: String!) {
       users(filter: { email: { eq: $email } }) {
@@ -65,7 +65,7 @@ def get_user_by_email(email: str) -> str | None:
     """
     try:
         nodes = _run(q, {"email": email.lower()}).get("users", {}).get("nodes", [])
-        return nodes[0]["id"] if nodes else None
+        return nodes[0] if nodes else None
     except Exception as e:
         logger.warning("Linear get_user_by_email(%s) failed: %s", email, e)
         return None
@@ -179,6 +179,24 @@ def comment_on_issue(issue_id: str, body: str) -> bool:
         return result.get("commentCreate", {}).get("success", False)
     except Exception as e:
         logger.error("Linear comment_on_issue(%s) failed: %s", issue_id, e)
+        return False
+
+
+def update_issue_assignee(issue_id: str, assignee_id: str) -> bool:
+    """Set the assignee on an existing Linear issue. Returns True on success."""
+    m = """
+    mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) {
+      issueUpdate(id: $id, input: $input) {
+        success
+        issue { id assignee { id name } }
+      }
+    }
+    """
+    try:
+        result = _run(m, {"id": issue_id, "input": {"assigneeId": assignee_id}})
+        return result.get("issueUpdate", {}).get("success", False)
+    except Exception as e:
+        logger.error("Linear update_issue_assignee(%s) failed: %s", issue_id, e)
         return False
 
 

@@ -586,6 +586,7 @@ async def linear_home(request: Request, session: AdminSession):
                 "track": track,
                 "issue_count": len(issues),
                 "has_project_id": bool(track and track.linear_project_id),
+                "has_linear_user": bool(intern.linear_user_id),
             }
         )
 
@@ -666,4 +667,67 @@ async def linear_fanout(
     if errors:
         result += f" | Errors: {'; '.join(errors)}"
     logger.info("Linear fanout (%s) by %s: %s", week_label, session.email, result)
+    return RedirectResponse(url=f"/admin/linear?result={result}", status_code=302)
+
+
+@router.post("/linear/fix-assignees")
+async def linear_fix_assignees(request: Request, session: AdminSession):
+    """
+    For interns who now have a linear_user_id, patch any existing unassigned issues
+    in the SQLite cache to assign them. Run after sync-ids to backfill missing assignees.
+    """
+    from app.db.sqlite import get_linear_issues_for_intern  # noqa: PLC0415
+    from app.services.linear import update_issue_assignee  # noqa: PLC0415
+
+    sheets = get_sheets_client()
+    all_roster = sheets.get_all_roster()
+    interns = [r for r in all_roster if r.role == "intern" and r.linear_user_id]
+
+    total_fixed = 0
+    for intern in interns:
+        issues = get_linear_issues_for_intern(intern.intern_id, max_age_seconds=86400)
+        for issue in issues:
+            if issue.get("state_type") in ("completed", "canceled"):
+                continue
+            ok = update_issue_assignee(issue["id"], intern.linear_user_id)
+            if ok:
+                total_fixed += 1
+
+    result = f"Assigned {total_fixed} existing issues to their interns"
+    logger.info("Linear fix-assignees by %s: %s", session.email, result)
+    return RedirectResponse(url=f"/admin/linear?result={result}", status_code=302)
+
+
+@router.post("/linear/sync-ids")
+async def linear_sync_ids(request: Request, session: AdminSession):
+    """
+    Look up each intern in Linear by email and save their linear_user_id to the Roster sheet.
+    Safe to run repeatedly — only updates rows where linear_user_id is empty.
+    """
+    from app.services.linear import get_user_by_email  # noqa: PLC0415
+
+    sheets = get_sheets_client()
+    all_roster = sheets.get_all_roster()
+    interns = [r for r in all_roster if r.role == "intern" and r.preferred_email]
+
+    updated = []
+    not_found = []
+    for intern in interns:
+        if intern.linear_user_id:
+            continue  # already linked
+        user = get_user_by_email(intern.preferred_email)
+        if user:
+            sheets.update_roster(intern.intern_id, linear_user_id=user["id"])
+            updated.append(intern.display_name)
+            logger.info("Linked %s → Linear %s", intern.intern_id, user["id"])
+        else:
+            not_found.append(intern.display_name)
+
+    invalidate_all()
+    parts = []
+    if updated:
+        parts.append(f"Linked: {', '.join(updated)}")
+    if not_found:
+        parts.append(f"Not in Linear workspace yet: {', '.join(not_found)}")
+    result = " | ".join(parts) or "All interns already linked."
     return RedirectResponse(url=f"/admin/linear?result={result}", status_code=302)

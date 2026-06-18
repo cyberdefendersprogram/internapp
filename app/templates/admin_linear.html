@@ -114,6 +114,22 @@
 </div>
 {% endif %}
 
+<div class="mb-4" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+  <form method="post" action="/admin/linear/sync-ids" style="display:inline">
+    <button class="button is-small is-link is-light" type="submit">
+      ↻ Sync Linear IDs
+    </button>
+  </form>
+  <form method="post" action="/admin/linear/fix-assignees" style="display:inline">
+    <button class="button is-small is-warning is-light" type="submit">
+      ⚑ Fix assignees on existing issues
+    </button>
+  </form>
+  <span style="font-size:11px;color:#888;">
+    Run <em>Sync Linear IDs</em> after interns accept workspace invite, then <em>Fix assignees</em> to backfill existing unassigned issues.
+  </span>
+</div>
+
 <!-- Week-by-week fan-out -->
 <div class="columns">
   <div class="column is-two-fifths">
@@ -164,7 +180,8 @@
           <tr>
             <th>Intern</th>
             <th>Track</th>
-            <th>Linear</th>
+            <th>Project</th>
+            <th>Assigned</th>
             <th>Issues</th>
             <th></th>
           </tr>
@@ -187,6 +204,13 @@
               <span style="color:#48c78e;font-size:12px;">✓</span>
               {% else %}
               <span class="badge-warn">no project</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if row.has_linear_user %}
+              <span style="color:#48c78e;font-size:12px;">✓</span>
+              {% else %}
+              <span class="badge-warn">pending</span>
               {% endif %}
             </td>
             <td>
