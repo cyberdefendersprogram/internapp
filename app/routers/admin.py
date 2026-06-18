@@ -9,7 +9,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader
 
 from app.config import settings
-from app.dependencies import AdminSession, templates
+from app.db.sqlite import (
+    add_meeting_note,
+    delete_meeting_note,
+    get_notes_for_intern,
+    update_meeting_note,
+)
+from app.dependencies import AdminOrMentorSession, AdminSession, templates
 from app.routers.intern import compute_week_number
 from app.services.cache import get_cache_stats, invalidate_all
 from app.services.email import send_email
@@ -106,8 +112,13 @@ async def admin_home(request: Request, session: AdminSession):
 
 
 @router.get("/intern/{intern_id}", response_class=HTMLResponse)
-async def admin_intern_detail(request: Request, intern_id: str, session: AdminSession):
-    """Full intern detail view."""
+async def admin_intern_detail(
+    request: Request,
+    intern_id: str,
+    session: AdminOrMentorSession,
+    note_saved: str = "",
+):
+    """Full intern detail view (admin and mentor)."""
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
 
@@ -119,6 +130,7 @@ async def admin_intern_detail(request: Request, intern_id: str, session: AdminSe
     checkins = sheets.get_checkins_for_intern(intern_id)
     deliverables = sheets.get_deliverables_for_intern(intern_id)
     feedback_list = sheets.get_feedback_for_intern(intern_id)
+    meeting_notes = get_notes_for_intern(intern_id)  # all notes for admin/mentor
 
     return templates.TemplateResponse(
         "admin_intern.html",
@@ -131,9 +143,76 @@ async def admin_intern_detail(request: Request, intern_id: str, session: AdminSe
                 deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
             ),
             "feedback_list": feedback_list,
+            "meeting_notes": meeting_notes,
             "week_number": week_number,
+            "note_saved": note_saved,
+            "session_role": session.role,
         },
     )
+
+
+@router.post("/intern/{intern_id}/notes", response_class=HTMLResponse)
+async def admin_add_note(
+    request: Request,
+    intern_id: str,
+    session: AdminOrMentorSession,
+    meeting_type: str = Form("mentor_1on1"),
+    week_number: str = Form(""),
+    meeting_date: str = Form(""),
+    notes: str = Form(""),
+    action_items: str = Form(""),
+    visibility: str = Form("all"),
+):
+    """Add a meeting note for an intern."""
+    intern = get_sheets_client().get_roster_by_id(intern_id)
+    if not intern:
+        return HTMLResponse("Intern not found.", status_code=404)
+
+    add_meeting_note(
+        intern_id=intern_id,
+        meeting_type=meeting_type,
+        week_number=int(week_number) if week_number.strip() else None,
+        meeting_date=meeting_date.strip() or None,
+        notes=notes.strip(),
+        action_items=action_items.strip(),
+        created_by=session.email,
+        visibility=visibility,
+    )
+    return RedirectResponse(url=f"/admin/intern/{intern_id}?note_saved=1", status_code=303)
+
+
+@router.post("/intern/{intern_id}/notes/{note_id}/delete")
+async def admin_delete_note(
+    intern_id: str,
+    note_id: str,
+    session: AdminOrMentorSession,
+):
+    """Delete a meeting note."""
+    delete_meeting_note(note_id)
+    return RedirectResponse(url=f"/admin/intern/{intern_id}", status_code=303)
+
+
+@router.post("/intern/{intern_id}/notes/{note_id}/edit")
+async def admin_edit_note(
+    intern_id: str,
+    note_id: str,
+    session: AdminOrMentorSession,
+    week_number: str = Form(""),
+    meeting_date: str = Form(""),
+    notes: str = Form(""),
+    action_items: str = Form(""),
+    visibility: str = Form("all"),
+):
+    """Update an existing meeting note."""
+    update_meeting_note(
+        note_id,
+        notes=notes.strip(),
+        action_items=action_items.strip(),
+        visibility=visibility,
+        meeting_date=meeting_date.strip() or None,
+        week_number=int(week_number) if week_number.strip() else None,
+    )
+    return RedirectResponse(url=f"/admin/intern/{intern_id}?note_saved=1", status_code=303)
 
 
 @router.get("/attendance", response_class=HTMLResponse)

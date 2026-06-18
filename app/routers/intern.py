@@ -59,6 +59,9 @@ async def home(request: Request, session: RequiredSession):
 
     if not intern.onboarding_completed_at:
         return RedirectResponse(url="/onboarding", status_code=302)
+
+    from app.db.sqlite import get_notes_for_intern  # noqa: PLC0415
+
     track = sheets.get_track_by_id(intern.track_id)
     week_number = compute_week_number(sheets)
 
@@ -102,6 +105,7 @@ async def home(request: Request, session: RequiredSession):
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
             "mentor": mentor,
+            "meeting_notes": get_notes_for_intern(intern.intern_id, visibility="all"),
             "session": request.cookies.get("session"),
         },
     )

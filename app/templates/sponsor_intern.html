@@ -175,5 +175,33 @@
     {% endif %}
   </div>
 </div>
+
+{% if meeting_notes %}
+<div class="card is-detail mt-4">
+  <div class="card-content">
+    <h2 class="cdp-heading" style="font-size:13px;letter-spacing:1px;margin-bottom:12px;">SPONSOR CHECK-IN NOTES ({{ meeting_notes|length }})</h2>
+    {% for note in meeting_notes %}
+    <div style="border-bottom:1px solid #eee;padding:10px 0;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span class="tag is-small" style="background:var(--cdp-blue);color:#fff;font-size:10px;">Sponsor Check-in</span>
+        <span style="font-size:11px;color:#aaa;">
+          Week {{ note.week_number or '—' }}{% if note.meeting_date %} &middot; {{ note.meeting_date }}{% endif %}
+          &middot; {{ note.created_by }}
+        </span>
+      </div>
+      {% if note.notes %}
+      <p style="font-size:13px;color:#333;margin:4px 0;white-space:pre-wrap;">{{ note.notes }}</p>
+      {% endif %}
+      {% if note.action_items %}
+      <div style="margin-top:6px;padding:6px 10px;background:#f8f9fa;border-radius:4px;border-left:3px solid var(--cdp-salmon);">
+        <p style="font-size:11px;font-weight:700;color:#888;margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px;">Action Items</p>
+        <p style="font-size:12px;color:#444;margin:0;white-space:pre-wrap;">{{ note.action_items }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

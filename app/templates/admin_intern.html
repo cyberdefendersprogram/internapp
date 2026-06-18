@@ -113,4 +113,150 @@
     </div>
   </div>
 </div>
+
+<!-- Meeting Notes -->
+{% if note_saved %}
+<div class="notification is-success is-light mb-4" style="font-size:13px;">
+  Meeting note saved.
+</div>
+{% endif %}
+
+<div class="columns mt-2">
+  <!-- Add note form -->
+  <div class="column is-two-fifths">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;margin-bottom:12px;">ADD MEETING NOTE</h2>
+        <form method="post" action="/admin/intern/{{ intern.intern_id }}/notes">
+          <div class="columns is-mobile is-variable is-2">
+            <div class="column">
+              <div class="field">
+                <label class="label is-small">Type</label>
+                <div class="control">
+                  <div class="select is-small is-fullwidth">
+                    <select name="meeting_type" id="meetingType">
+                      <option value="mentor_1on1">Mentor 1:1</option>
+                      <option value="sponsor_checkin">Sponsor Check-in</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="column">
+              <div class="field">
+                <label class="label is-small">Week</label>
+                <div class="control">
+                  <input class="input is-small" type="number" name="week_number"
+                    value="{{ week_number }}" min="1" max="6" style="width:70px;">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Date</label>
+            <div class="control">
+              <input class="input is-small" type="date" name="meeting_date"
+                value="{{ now_date if now_date else '' }}">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Notes</label>
+            <div class="control">
+              <textarea class="textarea is-small" name="notes" rows="4"
+                placeholder="What was discussed..."></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Action Items</label>
+            <div class="control">
+              <textarea class="textarea is-small" name="action_items" rows="2"
+                placeholder="- Item 1&#10;- Item 2"></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Visibility</label>
+            <div class="control">
+              <div class="select is-small">
+                <select name="visibility" id="visibilitySelect">
+                  <option value="all">Shared with intern &amp; sponsor</option>
+                  <option value="mentor_admin">Mentor &amp; admin only</option>
+                </select>
+              </div>
+            </div>
+            <p class="help" id="visibilityHelp" style="font-size:11px;color:#888;"></p>
+          </div>
+          <div class="field mt-3">
+            <button type="submit" class="button is-primary is-small">Save Note</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes list -->
+  <div class="column">
+    <div class="card is-detail">
+      <div class="card-content">
+        <h2 class="cdp-heading" style="font-size:13px;margin-bottom:12px;">
+          MEETING NOTES ({{ meeting_notes|length }})
+        </h2>
+        {% for note in meeting_notes %}
+        <div style="border-bottom:1px solid #eee;padding:10px 0;" id="note-{{ note.id }}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <span class="tag is-small"
+                style="background:{% if note.meeting_type == 'sponsor_checkin' %}var(--cdp-blue){% else %}var(--cdp-navy){% endif %};color:#fff;font-size:10px;">
+                {{ 'Sponsor Check-in' if note.meeting_type == 'sponsor_checkin' else ('Mentor 1:1' if note.meeting_type == 'mentor_1on1' else 'Other') }}
+              </span>
+              {% if note.visibility == 'mentor_admin' %}
+              <span class="tag is-small" style="background:#eee;color:#888;font-size:10px;margin-left:4px;">🔒 Private</span>
+              {% endif %}
+              <span style="font-size:11px;color:#aaa;margin-left:6px;">
+                Week {{ note.week_number or '—' }}
+                {% if note.meeting_date %} &middot; {{ note.meeting_date }}{% endif %}
+                &middot; {{ note.created_by }}
+              </span>
+            </div>
+            <form method="post" action="/admin/intern/{{ intern.intern_id }}/notes/{{ note.id }}/delete"
+                  onsubmit="return confirm('Delete this note?');" style="margin:0;">
+              <button type="submit" class="button is-ghost is-small"
+                style="color:#bbb;padding:0 4px;height:auto;"
+                title="Delete note">✕</button>
+            </form>
+          </div>
+          {% if note.notes %}
+          <p style="font-size:13px;color:#333;margin:6px 0 2px;white-space:pre-wrap;">{{ note.notes }}</p>
+          {% endif %}
+          {% if note.action_items %}
+          <div style="margin-top:6px;padding:6px 10px;background:#f8f9fa;border-radius:4px;border-left:3px solid var(--cdp-salmon);">
+            <p style="font-size:11px;font-weight:700;color:#888;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;">Action Items</p>
+            <p style="font-size:12px;color:#444;white-space:pre-wrap;">{{ note.action_items }}</p>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="is-size-7 has-text-grey">No meeting notes yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const typeSelect = document.getElementById('meetingType');
+  const visSelect  = document.getElementById('visibilitySelect');
+  const visHelp    = document.getElementById('visibilityHelp');
+
+  function updateDefaults() {
+    if (typeSelect.value === 'sponsor_checkin') {
+      visSelect.value = 'all';
+      visHelp.textContent = 'Sponsor check-in notes are shared with interns and sponsors by default.';
+    } else {
+      visHelp.textContent = 'Mentor 1:1 notes can be kept private if they contain coaching-only content.';
+    }
+  }
+  typeSelect.addEventListener('change', updateDefaults);
+  updateDefaults();
+</script>
 {% endblock %}

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -42,6 +43,24 @@ CREATE TABLE IF NOT EXISTS intern_cache (
 );
 """
 
+SCHEMA_MEETING_NOTES = """
+CREATE TABLE IF NOT EXISTS meeting_notes (
+    id           TEXT PRIMARY KEY,
+    intern_id    TEXT NOT NULL,
+    meeting_type TEXT NOT NULL DEFAULT 'mentor_1on1',
+    week_number  INTEGER,
+    meeting_date TEXT,
+    notes        TEXT NOT NULL DEFAULT '',
+    action_items TEXT NOT NULL DEFAULT '',
+    created_by   TEXT NOT NULL,
+    visibility   TEXT NOT NULL DEFAULT 'all',
+    created_at   TEXT NOT NULL,
+    updated_at   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_meeting_notes_intern ON meeting_notes(intern_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_notes_type   ON meeting_notes(meeting_type);
+"""
+
 INTERN_CACHE_TTL_SECONDS = 900  # 15 minutes — reduces Sheets API call frequency
 
 
@@ -54,6 +73,7 @@ def init_db() -> None:
         db.executescript(SCHEMA_MAGIC_TOKENS)
         db.executescript(SCHEMA_RATE_LIMITS)
         db.executescript(SCHEMA_INTERN_CACHE)
+        db.executescript(SCHEMA_MEETING_NOTES)
 
 
 @contextmanager
@@ -129,3 +149,108 @@ def set_cached_intern(intern: "InternEntry") -> None:
             )
     except Exception:
         pass
+
+
+# ── Meeting notes ─────────────────────────────────────────────────────────────
+
+
+def add_meeting_note(
+    *,
+    intern_id: str,
+    meeting_type: str,
+    week_number: int | None,
+    meeting_date: str | None,
+    notes: str,
+    action_items: str,
+    created_by: str,
+    visibility: str = "all",
+) -> str:
+    """Insert a meeting note and return its UUID."""
+    note_id = str(uuid.uuid4())
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO meeting_notes
+               (id, intern_id, meeting_type, week_number, meeting_date,
+                notes, action_items, created_by, visibility, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                note_id,
+                intern_id,
+                meeting_type,
+                week_number,
+                meeting_date,
+                notes,
+                action_items,
+                created_by,
+                visibility,
+                now,
+                now,
+            ),
+        )
+    return note_id
+
+
+def get_notes_for_intern(intern_id: str, visibility: str | None = None) -> list[dict]:
+    """Return meeting notes for an intern, newest first.
+
+    If visibility is 'all', only returns notes with visibility='all'.
+    If visibility is None, returns all notes (admin/mentor view).
+    """
+    with get_db() as db:
+        if visibility == "all":
+            rows = db.execute(
+                """SELECT * FROM meeting_notes
+                   WHERE intern_id = ? AND visibility = 'all'
+                   ORDER BY meeting_date DESC, created_at DESC""",
+                (intern_id,),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """SELECT * FROM meeting_notes
+                   WHERE intern_id = ?
+                   ORDER BY meeting_date DESC, created_at DESC""",
+                (intern_id,),
+            ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_sponsor_notes_for_intern(intern_id: str) -> list[dict]:
+    """Return sponsor check-in notes visible to sponsors (visibility=all)."""
+    with get_db() as db:
+        rows = db.execute(
+            """SELECT * FROM meeting_notes
+               WHERE intern_id = ? AND meeting_type = 'sponsor_checkin' AND visibility = 'all'
+               ORDER BY meeting_date DESC, created_at DESC""",
+            (intern_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_meeting_note(note_id: str) -> bool:
+    """Delete a meeting note by ID. Returns True if a row was deleted."""
+    with get_db() as db:
+        cursor = db.execute("DELETE FROM meeting_notes WHERE id = ?", (note_id,))
+    return cursor.rowcount > 0
+
+
+def update_meeting_note(
+    note_id: str,
+    *,
+    notes: str,
+    action_items: str,
+    visibility: str,
+    meeting_date: str | None,
+    week_number: int | None,
+) -> bool:
+    """Update an existing meeting note. Returns True if a row was updated."""
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        cursor = db.execute(
+            """UPDATE meeting_notes
+               SET notes = ?, action_items = ?, visibility = ?,
+                   meeting_date = ?, week_number = ?, updated_at = ?
+               WHERE id = ?""",
+            (notes, action_items, visibility, meeting_date, week_number, now, note_id),
+        )
+    return cursor.rowcount > 0

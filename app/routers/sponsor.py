@@ -115,10 +115,13 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
         if not sponsor_track_ids.intersection(intern.track_ids):
             return HTMLResponse("Access denied.", status_code=403)
 
+    from app.db.sqlite import get_sponsor_notes_for_intern  # noqa: PLC0415
+
     track = sheets.get_track_by_id(intern.track_id)
     checkins = sheets.get_checkins_for_intern(intern_id)
     deliverables = sheets.get_deliverables_for_intern(intern_id)
     feedback_list = sheets.get_feedback_for_intern(intern_id)
+    meeting_notes = get_sponsor_notes_for_intern(intern_id)
 
     return templates.TemplateResponse(
         "sponsor_intern.html",
@@ -131,6 +134,7 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
                 deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
             ),
             "feedback_list": feedback_list,
+            "meeting_notes": meeting_notes,
             "week_number": week_number,
             "error": None,
             "success": None,
