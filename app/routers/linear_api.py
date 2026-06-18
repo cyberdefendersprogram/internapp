@@ -109,32 +109,14 @@ async def linear_webhook(request: Request):
 
 async def _handle_issue_event(action: str, data: dict) -> None:
     from app.services.discord import send_dm  # noqa: PLC0415
-    from app.services.sheets import get_sheets_client  # noqa: PLC0415
 
     issue_id = data.get("id", "")
     title = data.get("title", "")
     url = data.get("url", "")
     state_type = data.get("state", {}).get("type", "")
-    assignee = data.get("assignee") or {}
-    assignee_linear_id = assignee.get("id")
+    assignee_linear_id = (data.get("assignee") or {}).get("id")
 
-    # Resolve intern from our SQLite cache
-    cached = get_linear_issue_by_id(issue_id)
-    intern_id = cached["intern_id"] if cached else None
-
-    # If not in cache, try to match via assignee Linear user ID
-    if not intern_id and assignee_linear_id:
-        sheets = get_sheets_client()
-        roster = sheets.get_all_roster()
-        match = next((r for r in roster if r.linear_user_id == assignee_linear_id), None)
-        intern_id = match.intern_id if match else None
-
-    if not intern_id:
-        return
-
-    # Get intern's discord_id
-    sheets = get_sheets_client()
-    intern = sheets.get_roster_by_id(intern_id)
+    intern, cached = _resolve_intern_from_issue(issue_id, assignee_linear_id)
     if not intern or not intern.discord_id:
         return
 
@@ -148,7 +130,7 @@ async def _handle_issue_event(action: str, data: dict) -> None:
         # Refresh cache
         upsert_linear_issue(
             issue_id=issue_id,
-            intern_id=intern_id,
+            intern_id=intern.intern_id,
             template_id=cached.get("template_id", "") if cached else "",
             title=title,
             state="Done",
@@ -166,9 +148,44 @@ async def _handle_issue_event(action: str, data: dict) -> None:
         send_dm(intern.discord_id, msg)
 
 
+def _resolve_intern_from_issue(issue_id: str, assignee_linear_id: str | None):
+    """
+    Find the InternEntry for a Linear issue.
+    Checks SQLite cache first, then falls back to matching by linear_user_id in the Roster,
+    then falls back to fetching the issue directly from Linear API.
+    Returns (intern, cached_row) or (None, None).
+    """
+    from app.services.linear import get_issues_for_intern  # noqa: PLC0415
+    from app.services.sheets import get_sheets_client  # noqa: PLC0415
+
+    cached = get_linear_issue_by_id(issue_id)
+    if cached:
+        sheets = get_sheets_client()
+        return sheets.get_roster_by_id(cached["intern_id"]), cached
+
+    sheets = get_sheets_client()
+    roster = sheets.get_all_roster()
+
+    # Match via assignee ID already in the payload
+    if assignee_linear_id:
+        match = next((r for r in roster if r.linear_user_id == assignee_linear_id), None)
+        if match:
+            return match, None
+
+    # Last resort: fetch the issue from Linear to get the assignee
+    for r in roster:
+        if not r.linear_user_id:
+            continue
+        issues = get_issues_for_intern(r.linear_user_id)
+        hit = next((i for i in issues if i["id"] == issue_id), None)
+        if hit:
+            return r, None
+
+    return None, None
+
+
 async def _handle_comment_event(data: dict) -> None:
     from app.services.discord import send_dm  # noqa: PLC0415
-    from app.services.sheets import get_sheets_client  # noqa: PLC0415
 
     issue_id = data.get("issue", {}).get("id", "")
     issue_title = data.get("issue", {}).get("title", "")
@@ -178,15 +195,11 @@ async def _handle_comment_event(data: dict) -> None:
     if not issue_id:
         return
 
-    cached = get_linear_issue_by_id(issue_id)
-    if not cached:
+    intern, _ = _resolve_intern_from_issue(issue_id, None)
+    if not intern or not intern.discord_id:
         return
 
     # Don't DM the intern about their own comments
-    sheets = get_sheets_client()
-    intern = sheets.get_roster_by_id(cached["intern_id"])
-    if not intern or not intern.discord_id:
-        return
     if intern.linear_user_id and author_id == intern.linear_user_id:
         return
 
