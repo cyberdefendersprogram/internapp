@@ -143,7 +143,7 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
             for i in get_linear_issues_for_intern(intern_id, max_age_seconds=86400)
             if i.get("linked_feature") == "deliverable" and i["state_type"] == "completed"
         ],
-        key=lambda i: (i.get("due_week") or 99),
+        key=lambda i: i.get("due_week") or 99,
     )
 
     return templates.TemplateResponse(

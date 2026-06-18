@@ -139,7 +139,7 @@ async def admin_intern_detail(
             for i in linear_issues
             if i.get("linked_feature") == "deliverable" and i["state_type"] == "completed"
         ],
-        key=lambda i: (i.get("due_week") or 99),
+        key=lambda i: i.get("due_week") or 99,
     )
 
     return templates.TemplateResponse(
@@ -577,7 +577,7 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
 
     todo_tasks = sorted(
         [t for t in linear_tasks if t["state_type"] not in ("completed", "canceled")],
-        key=lambda t: (t.get("due_week") or 99),
+        key=lambda t: t.get("due_week") or 99,
     )
     done_tasks = [t for t in linear_tasks if t["state_type"] == "completed"]
 

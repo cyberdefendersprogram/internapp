@@ -88,7 +88,7 @@ async def home(request: Request, session: RequiredSession):
 
     todo_tasks = sorted(
         [t for t in linear_tasks if t["state_type"] not in ("completed", "canceled")],
-        key=lambda t: (t.get("due_week") or 99),
+        key=lambda t: t.get("due_week") or 99,
     )
     done_tasks = [t for t in linear_tasks if t["state_type"] == "completed"]
 
