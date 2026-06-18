@@ -78,7 +78,9 @@ async def home(request: Request, session: RequiredSession):
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
     checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
 
-    # Tasks from Linear — read local cache; refresh from Linear if intern has a user ID
+    # Tasks from Linear — serve from SQLite cache (5-min TTL).
+    # get_linear_issues_for_intern returns [] when all rows are stale, triggering a sync.
+    # This naturally picks up ad-hoc Linear tasks within one TTL cycle (~5 min).
     linear_tasks = get_linear_issues_for_intern(intern.intern_id)
     if not linear_tasks and intern.linear_user_id:
         sync_intern_issues_from_linear(intern.intern_id, intern.linear_user_id)
