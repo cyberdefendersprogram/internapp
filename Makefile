@@ -13,7 +13,8 @@ SSH_CMD     := sshpass -p '$(VM_PASSWORD)' ssh -o StrictHostKeyChecking=no root@
 
 .PHONY: help dev docker-dev test lint fmt seed \
         pre-commit-install pre-commit provision \
-        deploy logs ssh health restart db-reset
+        deploy logs ssh health restart db-reset \
+        db db-query db-tables db-pull
 
 # ── Default ───────────────────────────────────────────────────────────────────
 help:
@@ -37,6 +38,10 @@ help:
 	@echo "  make health            Check server health endpoint"
 	@echo "  make restart           Restart containers on server"
 	@echo "  make db-reset          Wipe SQLite on server (resets sessions/cache)"
+	@echo "  make db                Interactive SQLite shell on production db"
+	@echo "  make db-tables         List all tables in production db"
+	@echo "  make db-query Q='...'  Run a SQL query on production db"
+	@echo "  make db-pull           Download production db to /tmp/internapp-prod.db"
 	@echo ""
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
@@ -111,3 +116,23 @@ db-reset:
 	@echo "Wiping SQLite on server (sessions + cache)..."
 	$(SSH_CMD) "docker exec \$$(docker ps --format '{{.Names}}' | grep internapp) rm -f /var/lib/internapp/app.db && docker compose -f $(SERVER_DIR)/docker-compose.yml restart"
 	@echo "Done. DB will reinitialize on next request."
+
+DB_CONTAINER = $$(docker ps --format '{{.Names}}' | grep internapp | head -1)
+DB_PATH      = /var/lib/internapp/app.db
+
+db:
+	sshpass -p '$(VM_PASSWORD)' ssh -tt -o StrictHostKeyChecking=no root@$(VM_IP) \
+	  "docker exec -it $(DB_CONTAINER) sqlite3 $(DB_PATH)"
+
+db-tables:
+	@$(SSH_CMD) "docker exec $(DB_CONTAINER) sqlite3 $(DB_PATH) '.tables'"
+
+db-query:
+	@$(SSH_CMD) "docker exec $(DB_CONTAINER) sqlite3 -column -header $(DB_PATH) '$(Q)'"
+
+db-pull:
+	@echo "Downloading production SQLite db..."
+	sshpass -p '$(VM_PASSWORD)' scp -o StrictHostKeyChecking=no \
+	  root@$(VM_IP):$(DB_PATH) /tmp/internapp-prod.db
+	@echo "Saved to /tmp/internapp-prod.db"
+	@echo "Open with: sqlite3 /tmp/internapp-prod.db"

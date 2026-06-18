@@ -216,6 +216,31 @@
       </div>
     </div>
 
+    <!-- Schedule Meetings -->
+    {% if (mentor and mentor.cal_link) or (track and track.sponsor_cal_link) %}
+    <div class="card mb-4" style="border-left:4px solid #FA7C91;background:#fff;">
+      <div class="card-content" style="padding:1rem 1.25rem;">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:.75rem;">Schedule a Meeting</p>
+        {% if mentor and mentor.cal_link %}
+        <p style="font-size:12px;color:#888;margin:0 0 4px;">Mentor 1:1</p>
+        <a href="{{ mentor.cal_link }}" target="_blank" rel="noopener"
+           class="button is-small is-fullwidth mb-3"
+           style="background:#062F49;color:#fff;font-weight:700;border:none;">
+          Book with {{ mentor.display_name }}
+        </a>
+        {% endif %}
+        {% if track and track.sponsor_cal_link %}
+        <p style="font-size:12px;color:#888;margin:0 0 4px;">Sponsor Check-in</p>
+        <a href="{{ track.sponsor_cal_link }}" target="_blank" rel="noopener"
+           class="button is-small is-fullwidth"
+           style="background:#5893BC;color:#fff;font-weight:700;border:none;">
+          Book with {{ track.employer_sponsor or 'Sponsor' }}
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Track Info -->
     <div class="card is-track mb-4">
       <div class="card-content">

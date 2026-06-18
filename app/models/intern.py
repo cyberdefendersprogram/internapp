@@ -24,6 +24,7 @@ class InternEntry:
     last_login_at: datetime | None = None
     discord_id: str | None = None
     discord_notify: bool = True
+    cal_link: str | None = None
 
     @property
     def track_ids(self) -> list[str]:
@@ -81,6 +82,7 @@ class InternEntry:
             last_login_at=_parse_datetime(row.get("last_login_at")),
             discord_id=row.get("discord_id") or None,
             discord_notify=str(row.get("discord_notify", "true")).lower() not in ("false", "0", ""),
+            cal_link=row.get("cal_link") or None,
         )
 
     def get_empty_profile_fields(self) -> list[str]:

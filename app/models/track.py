@@ -12,6 +12,7 @@ class TrackEntry:
     description: str = ""
     employer_sponsor: str = ""
     sponsor_email: str = ""
+    sponsor_cal_link: str = ""
     status: str = "active"
 
     @property
@@ -28,5 +29,6 @@ class TrackEntry:
             description=row.get("description", ""),
             employer_sponsor=row.get("employer_sponsor", ""),
             sponsor_email=row.get("sponsor_email", ""),
+            sponsor_cal_link=row.get("sponsor_cal_link", ""),
             status=row.get("status", "active"),
         )
