@@ -164,6 +164,24 @@ def create_issue(
         return None
 
 
+def comment_on_issue(issue_id: str, body: str) -> bool:
+    """Post a Markdown comment on a Linear issue. Returns True on success."""
+    m = """
+    mutation AddComment($input: CommentCreateInput!) {
+      commentCreate(input: $input) {
+        success
+        comment { id }
+      }
+    }
+    """
+    try:
+        result = _run(m, {"input": {"issueId": issue_id, "body": body}})
+        return result.get("commentCreate", {}).get("success", False)
+    except Exception as e:
+        logger.error("Linear comment_on_issue(%s) failed: %s", issue_id, e)
+        return False
+
+
 def update_issue_state(issue_id: str, state_name: str) -> bool:
     """Update the workflow state of a Linear issue. Returns True on success."""
     state_id = LINEAR_STATES.get(state_name)

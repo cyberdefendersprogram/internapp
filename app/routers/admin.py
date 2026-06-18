@@ -66,7 +66,7 @@ async def admin_home(request: Request, session: AdminSession):
                 "intern": intern,
                 "track": track,
                 "weekly_status": weekly_status,
-                "deliverable_count": len(sheets.get_deliverables_for_intern(intern.intern_id)),
+                "deliverable_count": 0,  # deliverables now tracked in Linear
             }
         )
 
@@ -126,11 +126,21 @@ async def admin_intern_detail(
     if not intern:
         return HTMLResponse("Intern not found.", status_code=404)
 
+    from app.db.sqlite import get_linear_issues_for_intern  # noqa: PLC0415
+
     track = sheets.get_track_by_id(intern.track_id)
     checkins = sheets.get_checkins_for_intern(intern_id)
-    deliverables = sheets.get_deliverables_for_intern(intern_id)
     feedback_list = sheets.get_feedback_for_intern(intern_id)
     meeting_notes = get_notes_for_intern(intern_id)  # all notes for admin/mentor
+    linear_issues = get_linear_issues_for_intern(intern_id, max_age_seconds=86400)
+    deliverables = sorted(
+        [
+            i
+            for i in linear_issues
+            if i.get("linked_feature") == "deliverable" and i["state_type"] == "completed"
+        ],
+        key=lambda i: (i.get("due_week") or 99),
+    )
 
     return templates.TemplateResponse(
         "admin_intern.html",
@@ -139,9 +149,7 @@ async def admin_intern_detail(
             "intern": intern,
             "track": track,
             "checkins": sorted(checkins, key=lambda c: c.get("submitted_at", ""), reverse=True),
-            "deliverables": sorted(
-                deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
-            ),
+            "deliverables": deliverables,
             "feedback_list": feedback_list,
             "meeting_notes": meeting_notes,
             "week_number": week_number,
@@ -553,20 +561,25 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
     if not intern:
         return HTMLResponse("Intern not found.", status_code=404)
 
+    from app.db.sqlite import get_linear_issues_for_intern  # noqa: PLC0415
+    from app.services.linear import sync_intern_issues_from_linear  # noqa: PLC0415
+
     track = sheets.get_track_by_id(intern.track_id)
     week_number = compute_week_number(sheets)
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
     checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
-    deliverables = sheets.get_deliverables_for_intern(intern.intern_id)
-    recent_deliverables = sorted(
-        deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
-    )[:3]
-    all_tasks = sheets.get_tasks_for_intern(intern.intern_id)
+
+    linear_tasks = get_linear_issues_for_intern(intern.intern_id, max_age_seconds=86400)
+    if not linear_tasks and intern.linear_user_id:
+        sync_intern_issues_from_linear(intern.intern_id, intern.linear_user_id)
+        linear_tasks = get_linear_issues_for_intern(intern.intern_id)
+
     todo_tasks = sorted(
-        [t for t in all_tasks if t.status == "todo"],
-        key=lambda t: (0 if t.priority == "high" else 1, t.due_week or 99),
+        [t for t in linear_tasks if t["state_type"] not in ("completed", "canceled")],
+        key=lambda t: (t.get("due_week") or 99),
     )
-    done_tasks = [t for t in all_tasks if t.status == "done"]
+    done_tasks = [t for t in linear_tasks if t["state_type"] == "completed"]
+
     logger.info("Admin %s previewing intern dashboard for %s", session.email, intern_id)
     return templates.TemplateResponse(
         "home.html",
@@ -576,12 +589,13 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
             "track": track,
             "week_number": week_number,
             "checked_in_this_week": checked_in_this_week,
-            "recent_deliverables": recent_deliverables,
-            "deliverable_count": len(deliverables),
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
+            "mentor": None,
+            "meeting_notes": [],
             "preview_mode": True,
             "preview_back_url": f"/admin/intern/{intern_id}",
+            "session": None,
         },
     )
 

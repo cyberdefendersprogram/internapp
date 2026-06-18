@@ -95,17 +95,18 @@
       </div>
     </div>
 
-    <!-- Recent Deliverables -->
+    <!-- Recent Deliverables (from Linear done tasks) -->
+    {% set deliverable_done = done_tasks | selectattr("linked_feature", "equalto", "deliverable") | list %}
     <div class="card is-detail mb-4">
       <div class="card-content">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
           <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin:0;">
-            Deliverables <span style="color:#aaa;font-weight:400;">({{ deliverable_count }} total)</span>
+            Deliverables <span style="color:#aaa;font-weight:400;">({{ deliverable_done|length }} submitted)</span>
           </p>
           <a href="/deliverables" class="is-size-7" style="color:var(--cdp-blue);">View all →</a>
         </div>
-        {% if recent_deliverables %}
-        {% for d in recent_deliverables %}
+        {% if deliverable_done %}
+        {% for d in deliverable_done[:3] %}
         <div class="deliverable-item">
           <p class="is-size-7" style="font-weight:700;color:var(--cdp-navy);margin:0;">
             {% if d.url %}
@@ -114,7 +115,9 @@
             {{ d.title }}
             {% endif %}
           </p>
-          <p class="is-size-7 has-text-grey" style="margin:0;">Week {{ d.week_number }}</p>
+          {% if d.due_week %}
+          <p class="is-size-7 has-text-grey" style="margin:0;">Week {{ d.due_week }}</p>
+          {% endif %}
         </div>
         {% endfor %}
         {% else %}
@@ -308,7 +311,7 @@
           <div class="progress-bar-fill" style="width:{{ ((week_number / 6) * 100)|int }}%;"></div>
         </div>
         <p class="is-size-7 has-text-grey mt-3">
-          {{ deliverable_count }} deliverable{{ 's' if deliverable_count != 1 else '' }} submitted
+          {{ done_tasks | selectattr("linked_feature", "equalto", "deliverable") | list | length }} deliverable{{ 's' if (done_tasks | selectattr("linked_feature", "equalto", "deliverable") | list | length) != 1 else '' }} submitted
         </p>
       </div>
     </div>

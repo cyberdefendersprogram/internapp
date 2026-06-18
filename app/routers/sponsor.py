@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app.db.sqlite import get_linear_issues_for_intern
 from app.dependencies import SponsorSession, templates
 from app.routers.intern import compute_week_number
 from app.services.sheets import get_sheets_client
@@ -30,7 +31,16 @@ async def sponsor_home(request: Request, session: SponsorSession):
             for intern in interns:
                 checkins = sheets.get_checkins_for_intern(intern.intern_id)
                 checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
-                deliverable_count = len(sheets.get_deliverables_for_intern(intern.intern_id))
+                deliverable_count = len(
+                    [
+                        i
+                        for i in get_linear_issues_for_intern(
+                            intern.intern_id, max_age_seconds=86400
+                        )
+                        if i.get("linked_feature") == "deliverable"
+                        and i["state_type"] == "completed"
+                    ]
+                )
                 intern_rows.append(
                     {
                         "intern": intern,
@@ -68,7 +78,13 @@ async def sponsor_home(request: Request, session: SponsorSession):
         for intern in track_interns:
             checkins = sheets.get_checkins_for_intern(intern.intern_id)
             checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
-            deliverable_count = len(sheets.get_deliverables_for_intern(intern.intern_id))
+            deliverable_count = len(
+                [
+                    i
+                    for i in get_linear_issues_for_intern(intern.intern_id, max_age_seconds=86400)
+                    if i.get("linked_feature") == "deliverable" and i["state_type"] == "completed"
+                ]
+            )
             intern_rows.append(
                 {"intern": intern, "checked_in": checked_in, "deliverable_count": deliverable_count}
             )
@@ -119,9 +135,16 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
 
     track = sheets.get_track_by_id(intern.track_id)
     checkins = sheets.get_checkins_for_intern(intern_id)
-    deliverables = sheets.get_deliverables_for_intern(intern_id)
     feedback_list = sheets.get_feedback_for_intern(intern_id)
     meeting_notes = get_sponsor_notes_for_intern(intern_id)
+    deliverables = sorted(
+        [
+            i
+            for i in get_linear_issues_for_intern(intern_id, max_age_seconds=86400)
+            if i.get("linked_feature") == "deliverable" and i["state_type"] == "completed"
+        ],
+        key=lambda i: (i.get("due_week") or 99),
+    )
 
     return templates.TemplateResponse(
         "sponsor_intern.html",
@@ -130,9 +153,7 @@ async def sponsor_intern_detail(request: Request, intern_id: str, session: Spons
             "intern": intern,
             "track": track,
             "checkins": sorted(checkins, key=lambda c: c.get("submitted_at", ""), reverse=True),
-            "deliverables": sorted(
-                deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
-            ),
+            "deliverables": deliverables,
             "feedback_list": feedback_list,
             "meeting_notes": meeting_notes,
             "week_number": week_number,

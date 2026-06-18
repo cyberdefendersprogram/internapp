@@ -78,14 +78,6 @@ async def home(request: Request, session: RequiredSession):
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
     checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
 
-    # Recent deliverables (last 3)
-    deliverables = sheets.get_deliverables_for_intern(intern.intern_id)
-    recent_deliverables = sorted(
-        deliverables,
-        key=lambda d: d.get("submitted_at", ""),
-        reverse=True,
-    )[:3]
-
     # Tasks from Linear — read local cache; refresh from Linear if intern has a user ID
     linear_tasks = get_linear_issues_for_intern(intern.intern_id)
     if not linear_tasks and intern.linear_user_id:
@@ -106,8 +98,6 @@ async def home(request: Request, session: RequiredSession):
             "track": track,
             "week_number": week_number,
             "checked_in_this_week": checked_in_this_week,
-            "recent_deliverables": recent_deliverables,
-            "deliverable_count": len(deliverables),
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
             "mentor": mentor,
@@ -204,24 +194,41 @@ async def checkin_submit(
     return RedirectResponse(url="/checkin?submitted=1", status_code=302)
 
 
+def _get_deliverable_tasks(intern_id: str) -> tuple[list, list]:
+    """Return (open_deliverable_tasks, done_deliverable_tasks) from Linear cache."""
+    all_tasks = get_linear_issues_for_intern(intern_id, max_age_seconds=86400)
+    open_tasks = [
+        t
+        for t in all_tasks
+        if t.get("linked_feature") == "deliverable"
+        and t["state_type"] not in ("completed", "canceled")
+    ]
+    done_tasks = [
+        t
+        for t in all_tasks
+        if t.get("linked_feature") == "deliverable" and t["state_type"] == "completed"
+    ]
+    return open_tasks, done_tasks
+
+
 @router.get("/deliverables", response_class=HTMLResponse)
 async def deliverables_page(request: Request, intern: OnboardedIntern):
     """View own deliverables and submit form."""
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
-    deliverables = sheets.get_deliverables_for_intern(intern.intern_id)
+    open_tasks, done_tasks = _get_deliverable_tasks(intern.intern_id)
+    submitted = request.query_params.get("submitted") == "1"
 
     return templates.TemplateResponse(
         "deliverables.html",
         {
             "request": request,
             "intern": intern,
-            "deliverables": sorted(
-                deliverables, key=lambda d: d.get("submitted_at", ""), reverse=True
-            ),
+            "open_tasks": open_tasks,
+            "done_tasks": done_tasks,
             "week_number": week_number,
             "error": None,
-            "success": None,
+            "success": "Deliverable submitted and Linear task marked Done!" if submitted else None,
         },
     )
 
@@ -230,44 +237,70 @@ async def deliverables_page(request: Request, intern: OnboardedIntern):
 async def deliverables_submit(
     request: Request,
     intern: OnboardedIntern,
-    title: str = Form(...),
-    url: str = Form(""),
+    url: str = Form(...),
     description: str = Form(""),
     week_number: int = Form(...),
 ):
-    """Submit a deliverable."""
-    sheets = get_sheets_client()
+    """Attach artifact URL to matching Linear deliverable task and mark it Done."""
+    from app.db.sqlite import upsert_linear_issue  # noqa: PLC0415
+    from app.services.linear import (  # noqa: PLC0415
+        STATE_TYPES,
+        comment_on_issue,
+        update_issue_state,
+    )
 
-    data = {
-        "submitted_at": datetime.utcnow().isoformat(),
-        "intern_id": intern.intern_id,
-        "track_id": intern.track_id,
-        "week_number": week_number,
-        "title": title.strip(),
-        "url": url.strip(),
-        "description": description.strip(),
-    }
+    open_tasks, done_tasks = _get_deliverable_tasks(intern.intern_id)
 
-    success = sheets.append_deliverable(data)
+    # Find the matching open task for this week (or any open deliverable if week not matched)
+    task = next(
+        (t for t in open_tasks if t.get("due_week") == week_number),
+        open_tasks[0] if open_tasks else None,
+    )
 
-    if success:
-        linear_complete(intern.intern_id, week_number, "deliverable")
-
-    if not success:
-        current_deliverables = sheets.get_deliverables_for_intern(intern.intern_id)
+    def _render_error(msg: str):
         return templates.TemplateResponse(
             "deliverables.html",
             {
                 "request": request,
                 "intern": intern,
-                "deliverables": current_deliverables,
+                "open_tasks": open_tasks,
+                "done_tasks": done_tasks,
                 "week_number": week_number,
-                "error": "Failed to submit deliverable. Please try again.",
+                "error": msg,
                 "success": None,
             },
         )
 
-    logger.info("Deliverable submitted: %s", intern.intern_id)
+    if not task:
+        return _render_error(
+            f"No open deliverable task found for Week {week_number}. "
+            "Ask your mentor to assign one in Linear."
+        )
+
+    comment_body = f"**Deliverable submitted**\n\n**Link:** {url.strip()}"
+    if description.strip():
+        comment_body += f"\n\n{description.strip()}"
+
+    comment_on_issue(task["id"], comment_body)
+
+    ok = update_issue_state(task["id"], "Done")
+    if not ok:
+        return _render_error(
+            "Could not update Linear task. Please try again or mark it Done in Linear directly."
+        )
+
+    upsert_linear_issue(
+        issue_id=task["id"],
+        intern_id=intern.intern_id,
+        template_id=task.get("template_id", ""),
+        title=task["title"],
+        state="Done",
+        state_type=STATE_TYPES["Done"],
+        url=task.get("url", ""),
+        due_week=task.get("due_week"),
+        linked_feature="deliverable",
+    )
+    logger.info("Deliverable submitted for %s week %d: %s", intern.intern_id, week_number, url)
     return RedirectResponse(url="/deliverables?submitted=1", status_code=302)
 
 
