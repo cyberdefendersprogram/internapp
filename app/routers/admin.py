@@ -393,6 +393,7 @@ async def email_send(
     APPLICANT_AUDIENCES = {"waitlist_applicants", "declined_applicants"}
     APPLICANT_SUBJECTS = {
         "waitlist": f"Your Application to {program_title} — Waitlist Status",
+        "waitlist-closed": f"Update on your {program_title} application",
         "decline": f"Thank you for applying to {program_title}",
     }
     INTERN_SUBJECTS = {
