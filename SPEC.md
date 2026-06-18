@@ -1,14 +1,14 @@
 # Intern App — Technical & Product Specification
 
-**Version**: 1.0
-**Stack**: FastAPI + Google Sheets + SQLite + Docker + DigitalOcean
+**Version**: 1.1
+**Stack**: FastAPI + Google Sheets + SQLite + Docker + DigitalOcean + Linear + Discord
 **Program**: Cyber Defenders Summer 2026 Internship
 
 ---
 
 ## 1. Purpose
 
-A lightweight intern tracking portal for ~25 interns across 5 cybersecurity project tracks. Coordinator, sponsors, and interns each have role-appropriate views. Google Sheets is the system of record; auth state lives in SQLite.
+A lightweight intern tracking portal for ~25 interns across 7 cybersecurity project tracks. Coordinator, sponsors, and interns each have role-appropriate views. Google Sheets is the system of record; auth/notes/issue cache live in SQLite. Linear manages intern tasks; Discord delivers automated DMs.
 
 **Goals**:
 - Track weekly check-ins, deliverables, attendance, and mentor feedback
@@ -66,10 +66,13 @@ Co-hosted with classapp on the same DigitalOcean droplet. classapp runs on port 
 | Nginx (host) | TLS termination, reverse proxy, subdomain routing |
 | Docker | Runtime isolation |
 | FastAPI | Application server |
-| SQLite | Magic tokens, rate limits, sessions |
+| SQLite | Magic tokens, rate limits, intern cache, Linear issue cache, meeting notes |
 | Google Sheets | All program data (roster, tracks, check-ins, deliverables, etc.) |
 | GitHub Actions | CI/CD pipeline |
 | ForwardEmail API | Magic links + email reminders (`api.forwardemail.net/v1/emails`) |
+| Linear | Task/issue management — GraphQL API + webhooks |
+| Discord Bot API | DM delivery for task notifications and check-in reminders |
+| APScheduler | Thursday noon PT check-in reminder cron job |
 
 ---
 
@@ -95,6 +98,10 @@ Co-hosted with classapp on the same DigitalOcean droplet. classapp runs on port 
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `SQLITE_PATH` | `/var/lib/internapp/app.db` | SQLite database path |
 | `PORT` | `8001` | HTTP port inside container |
+| `DISCORD_CDPBOT_TOKEN` | — | Discord bot token — required for DM reminders |
+| `LINEAR_API_KEY` | — | Linear personal API key — required for issue sync |
+| `LINEAR_WEBHOOK_SECRET` | — | Linear webhook signing secret |
+| `LINEAR_TEAM_ID` | `9e576d33-...` | Linear team ID (pre-configured) |
 
 ---
 
@@ -264,6 +271,7 @@ One row per user (intern, mentor, admin, or sponsor). Admin pre-populates all fi
 | `last_login_at` | ISO timestamp | System |
 | `discord_id` | string | Set by `/link` flow; blank until linked |
 | `discord_notify` | boolean | `true` default; set to `false` via `/notify off` |
+| `linear_user_id` | string | Linear UUID — set by admin Sync Linear IDs action after intern accepts invite |
 
 **Constraints**:
 - `intern_id` must be unique
@@ -408,8 +416,6 @@ Key-value configuration. Admin edits directly in Sheets.
 
 ## 9. SQLite Data Model
 
-Auth-only. Same patterns as classapp.
-
 ### 9.1 `magic_tokens`
 
 ```sql
@@ -421,18 +427,71 @@ CREATE TABLE magic_tokens (
     used_at TEXT,
     status TEXT DEFAULT 'pending'  -- pending, used, expired
 );
-CREATE INDEX idx_tokens_email ON magic_tokens(email);
 ```
 
 ### 9.2 `rate_limits`
 
 ```sql
 CREATE TABLE rate_limits (
-    key TEXT PRIMARY KEY,          -- e.g., "magic:user@example.com" or "ip:1.2.3.4"
+    key TEXT PRIMARY KEY,          -- e.g., "email:user@example.com"
     window_start TEXT NOT NULL,
     count INTEGER DEFAULT 1
 );
 ```
+
+### 9.3 `intern_cache`
+
+Caches Roster rows (15 min TTL) to reduce Sheets API calls.
+
+```sql
+CREATE TABLE intern_cache (
+    intern_id TEXT PRIMARY KEY,
+    profile_json TEXT NOT NULL,
+    cached_at TEXT NOT NULL
+);
+```
+
+### 9.4 `meeting_notes`
+
+Stores mentor/admin meeting notes (not in Sheets because Sheets handles multi-line text poorly).
+
+```sql
+CREATE TABLE meeting_notes (
+    id           TEXT PRIMARY KEY,
+    intern_id    TEXT NOT NULL,
+    meeting_type TEXT NOT NULL DEFAULT 'mentor_1on1',  -- mentor_1on1, sponsor_checkin, other
+    week_number  INTEGER,
+    meeting_date TEXT,
+    notes        TEXT NOT NULL DEFAULT '',
+    action_items TEXT NOT NULL DEFAULT '',
+    created_by   TEXT NOT NULL,
+    visibility   TEXT NOT NULL DEFAULT 'all',  -- all (intern-visible) or mentor_admin
+    created_at   TEXT NOT NULL,
+    updated_at   TEXT
+);
+```
+
+### 9.5 `linear_issues`
+
+Caches Linear issue state to avoid repeated API calls and support webhook-triggered updates.
+
+```sql
+CREATE TABLE linear_issues (
+    id              TEXT PRIMARY KEY,  -- Linear issue UUID
+    intern_id       TEXT NOT NULL,
+    template_id     TEXT NOT NULL DEFAULT '',
+    title           TEXT NOT NULL,
+    state           TEXT NOT NULL DEFAULT 'Todo',
+    state_type      TEXT NOT NULL DEFAULT 'unstarted',  -- unstarted, started, completed, cancelled
+    url             TEXT NOT NULL DEFAULT '',
+    due_week        INTEGER,
+    linked_feature  TEXT NOT NULL DEFAULT '',
+    synced_at       TEXT NOT NULL
+);
+CREATE INDEX idx_linear_issues_intern ON linear_issues(intern_id);
+```
+
+Cache TTL: 5 minutes for issue state, 24 hours for the "mark done" endpoint.
 
 ---
 
@@ -576,28 +635,27 @@ Admin sees summary: N sent, M failed
 |--------|------|-------------|
 | GET | `/admin` | All interns grouped by track, program-wide progress overview |
 | GET | `/admin/intern/{intern_id}` | Individual intern detail |
+| GET | `/admin/intern/{intern_id}/preview` | Preview intern dashboard as that user (without resetting token) |
 | GET | `/admin/attendance` | Attendance log + entry form |
 | POST | `/admin/attendance` | Log attendance |
 | GET | `/admin/email` | Email composer |
 | POST | `/admin/email/preview` | Render preview for one sample recipient |
 | POST | `/admin/email/send` | Send emails, log results |
+| GET | `/admin/linear` | Linear overview: all interns, issues, and assignment status |
+| POST | `/admin/linear/sync-ids` | Look up interns by email in Linear, save `linear_user_id` to Roster |
+| POST | `/admin/linear/fix-assignees` | Patch unassigned Linear issues to the correct intern |
+| POST | `/admin/discord/send-reminders` | Manually DM interns who haven't submitted a check-in this week |
 
-### 12.6 Tasks API (JSON)
-
-All endpoints require a valid session cookie. Admin and mentor see all tasks for their scope; interns see only their own tasks.
+### 12.6 Linear API (JSON)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/tasks` | My tasks (role-filtered); `?week=N` to filter by week |
-| POST | `/api/tasks` | Create a task |
-| PATCH | `/api/tasks/{task_id}` | Update task status or fields |
-| GET | `/api/tasks/team` | Mentor/admin: open tasks across track interns |
-| GET | `/api/tasks/overdue` | Mentor/admin: tasks past their `due_week` still in `todo` |
-| GET | `/api/tasks/summary` | Admin: week × track completion matrix |
+| POST | `/api/linear/issues/{issue_id}/done` | Intern marks their Linear issue as Done |
+| POST | `/api/linear/webhook` | Linear webhook receiver — delivers Discord DMs on issue/comment events |
 
 ### 12.7 Bot API (JSON)
 
-Authenticated with `Authorization: Bearer <DISCORD_CDPBOT_TOKEN>` or `X-Api-Key: <token>` header. Same business logic as the tasks API; used exclusively by the Discord bot.
+Authenticated with `Authorization: Bearer <DISCORD_CDPBOT_TOKEN>` header. Used by the Discord bot (OpenClaw).
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -759,18 +817,68 @@ Returns `200` if healthy, `503` if degraded.
 
 ---
 
-## 18. Deferred (v2)
+## 18. Linear + Discord DM Integration
 
-- Discord-native check-ins (standup modal as alternative to web form)
-- Automated scheduled reminders (cron-triggered Monday digests, Sunday overdue pings)
-- Intern-facing deliverable comments from sponsor
-- PDF export of intern progress report
-- Bulk attendance import from CSV
-- Task fan-out triggered automatically on `program_start_date` (currently `make seed-tasks` is manual)
+### 18.1 Linear task lifecycle
+
+1. Admin creates Task Templates in Sheets (once per program).
+2. Admin runs "Fan out tasks" on `/admin/linear` → issues created in Linear per intern.
+3. Admin runs "Sync Linear IDs" → `linear_user_id` populated in Roster for interns who've joined Linear.
+4. Admin runs "Fix assignees" → unassigned issues patched to correct interns.
+5. Interns work in Linear; state changes fire webhooks to the portal.
+
+### 18.2 Webhook event → Discord DM
+
+```
+Linear event (issue assigned / completed / comment)
+    │
+    ▼
+POST /api/linear/webhook
+    │
+    ├── Verify HMAC-SHA256 signature (LINEAR_WEBHOOK_SECRET)
+    ├── Resolve intern from issue:
+    │     1. SQLite cache (linear_issues table)
+    │     2. assignee.id in payload → Roster.linear_user_id match
+    │     3. Linear API fetch per intern (last resort)
+    │
+    ▼
+app.services.discord.send_dm(discord_id, message)
+    │
+    ├── POST /users/@me/channels → open DM channel
+    └── POST /channels/{id}/messages → send message
+```
+
+### 18.3 Thursday check-in reminder (APScheduler)
+
+Fires every Thursday at noon PT. DMss every intern whose `discord_id` is set and who hasn't submitted a check-in for the current week.
+
+```
+APScheduler cron (thu, 12:00 PT)
+    │
+    ▼
+jobs.reminders.send_checkin_reminders()
+    │
+    ├── Compute current week_number from program_start_date
+    ├── Get all interns with discord_id set
+    ├── For each: check Check_ins sheet for this week
+    └── DM those who haven't submitted
+```
+
+Returns `{week_number, sent, already_checked_in, failed}`.
 
 ---
 
-## 19. Acceptance Criteria
+## 19. Deferred
+
+- Discord-native check-ins (standup modal as alternative to web form)
+- Monday digest DMs (week summary + pending tasks)
+- Intern-facing deliverable comments from sponsor
+- PDF export of intern progress report
+- Bulk attendance import from CSV
+
+---
+
+## 20. Acceptance Criteria
 
 - [ ] 25 interns can log in simultaneously without rate-limit errors
 - [ ] Magic link → claim → onboarding works end-to-end for interns
@@ -786,6 +894,13 @@ Returns `200` if healthy, `503` if degraded.
 - [ ] Submitting a check-in or deliverable auto-completes the matching linked task
 - [ ] Discord `/link` flow connects a Discord user to their Roster entry end-to-end
 - [ ] Bot API rejects requests without a valid `DISCORD_CDPBOT_TOKEN`
+- [x] Linear webhook receives events and verifies HMAC-SHA256 signature
+- [x] Comment on intern's Linear issue → Discord DM to intern
+- [x] Issue assigned in Linear → Discord DM to intern
+- [x] Thursday noon PT check-in reminder DMs interns who haven't submitted
+- [x] Admin "Sync Linear IDs" populates `linear_user_id` for workspace members
+- [x] Admin "Fix assignees" patches unassigned Linear issues to correct interns
+- [x] Intern can mark their own Linear issue Done via portal
 
 ---
 

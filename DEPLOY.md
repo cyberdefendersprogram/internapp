@@ -19,12 +19,6 @@ classapp stays on port 8000. Nginx routes `intern.cyberdefendersprogram.com` to 
 Run once on the droplet (safe alongside classapp — only adds new directories):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/cyberdefendersprogram/internapp/main/scripts/provision.sh | bash
-```
-
-Or manually:
-
-```bash
 ssh root@DROPLET_IP
 mkdir -p /opt/internapp/env /var/lib/internapp /etc/internapp
 chmod 700 /opt/internapp/env /etc/internapp
@@ -36,7 +30,7 @@ chmod 700 /opt/internapp/env /etc/internapp
 
 ```bash
 # .env file (edit BASE_URL and all credentials first)
-scp .env root@DROPLET_IP:/opt/internapp/env/.env
+scp env/.env root@DROPLET_IP:/opt/internapp/env/.env
 ssh root@DROPLET_IP chmod 600 /opt/internapp/env/.env
 
 # Google service account
@@ -44,16 +38,32 @@ scp .secrets/service-account.json root@DROPLET_IP:/etc/internapp/service-account
 ssh root@DROPLET_IP chmod 600 /etc/internapp/service-account.json
 ```
 
-The `.env` on the droplet should have:
+The `/opt/internapp/env/.env` file on the droplet should contain:
 
-```
+```env
 BASE_URL=https://intern.cyberdefendersprogram.com
 ENV=production
 SQLITE_PATH=/var/lib/internapp/app.db
 GOOGLE_SERVICE_ACCOUNT_PATH=/etc/internapp/service-account.json
+SECRET_KEY=your-32-char-secret-key
+ADMIN_EMAILS=vaibhavb@gmail.com,evgeny@...
+
+# Email
 FORWARDEMAIL_USER=noreply@cyberdefendersprogram.com
 FORWARDEMAIL_PASS=your-forwardemail-api-key
+
+# Google Sheets
+GOOGLE_SHEETS_ID=1-FGtDoCKL6Gans8YkSpeF8Sl5ojeSWtZ0A-dwyauKPA
+
+# Discord
+DISCORD_CDPBOT_TOKEN=your-discord-bot-token
+
+# Linear
+LINEAR_API_KEY=lin_api_...
+LINEAR_WEBHOOK_SECRET=lin_wh_...
 ```
+
+> **Note**: `env/.env` (with the `env/` subdirectory) is the path `docker-compose.yml` expects. Do not place it at `/opt/internapp/.env`.
 
 ---
 
@@ -105,6 +115,30 @@ Watch progress at: https://github.com/cyberdefendersprogram/internapp/actions
 
 ---
 
+## Updating a single env var
+
+Use the GitHub Actions workflow to update one env var on prod without an SSH session:
+
+```
+GitHub → Actions → "Update prod .env" → Run workflow
+```
+
+Enter the `key` (e.g. `LINEAR_API_KEY`) and `value`. The workflow SSHes in, updates the line, and restarts the container.
+
+---
+
+## Setting up the Linear webhook
+
+After deploying:
+
+1. Go to Linear → Settings → API → Webhooks → Create webhook
+2. URL: `https://intern.cyberdefendersprogram.com/api/linear/webhook`
+3. Events: **Issue** (created, updated) and **Comment** (created)
+4. Copy the signing secret
+5. Use the "Update prod .env" workflow to set `LINEAR_WEBHOOK_SECRET=<secret>`
+
+---
+
 ## Ongoing operations
 
 ```bash
@@ -120,8 +154,13 @@ make health
 # Restart containers
 make restart
 
-# Wipe SQLite (auth tokens + intern cache — does NOT touch Sheets data)
+# Wipe SQLite (auth tokens + intern cache + Linear issue cache — does NOT touch Sheets data)
 make db-reset
+
+# Inspect prod database
+make db-tables
+make db-query Q="SELECT intern_id, state FROM linear_issues"
+make db-pull   # download to /tmp/internapp-prod.db
 ```
 
 ---
@@ -131,7 +170,7 @@ make db-reset
 ```
 /opt/internapp/          ← docker-compose.yml lives here
 ├── env/
-│   └── .env             ← secrets (mode 600)
+│   └── .env             ← secrets (mode 600)  ← THIS path, not /opt/internapp/.env
 └── docker-compose.yml
 
 /var/lib/internapp/      ← persistent SQLite
@@ -147,18 +186,37 @@ make db-reset
 
 **502 Bad Gateway**
 ```bash
-ssh root@DROPLET_IP
 cd /opt/internapp
-docker compose ps          # container status
-docker compose logs --tail=50  # app logs
-ss -tlnp | grep 8001       # confirm port is listening
-nginx -t                   # nginx config OK?
+docker compose ps
+docker compose logs --tail=50
+ss -tlnp | grep 8001
+nginx -t
 ```
 
 **Container not starting**
 ```bash
 docker compose logs app
 curl http://127.0.0.1:8001/health
+```
+
+**Linear webhook not delivering DMs**
+```bash
+# Check for 401 from Linear API (missing LINEAR_API_KEY)
+docker logs internapp-app-1 2>&1 | grep "401\|LINEAR\|linear"
+
+# Check that the webhook secret matches
+docker logs internapp-app-1 2>&1 | grep "signature\|webhook"
+
+# Check Discord DM sending
+docker logs internapp-app-1 2>&1 | grep "DM\|discord"
+```
+
+**Interns not getting DMs (new workspace joiners)**
+```bash
+# After interns accept Linear invites, run Sync + Fix from admin UI:
+# 1. Go to /admin/linear
+# 2. Click "Sync Linear IDs"  — populates linear_user_id in Roster
+# 3. Click "Fix assignees"    — patches unassigned issues
 ```
 
 **Sheets API errors**
