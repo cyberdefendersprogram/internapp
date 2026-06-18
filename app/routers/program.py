@@ -41,12 +41,14 @@ async def program_dashboard(request: Request):
 
         intern_entries = []
         for intern in track_interns:
+            if intern.role != "intern" or not intern.is_claimed:
+                continue
             intern_deliverables = [
                 d for d in all_deliverables if str(d.get("intern_id")) == str(intern.intern_id)
             ]
             intern_entries.append(
                 {
-                    "name": intern.display_name if intern.is_claimed else "TBD",
+                    "name": intern.display_name,
                     "deliverables": [
                         {
                             "title": d.get("title", ""),
