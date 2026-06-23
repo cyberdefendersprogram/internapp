@@ -308,10 +308,16 @@ def _build_description(intern, track, tmpl: dict) -> str:
     )
 
 
-def complete_linked_tasks(intern_id: str, week_number: int | None, linked_feature: str) -> int:
+def complete_linked_tasks(
+    intern_id: str,
+    week_number: int | None,
+    linked_feature: str,
+    comment: str | None = None,
+) -> int:
     """
     Mark matching Linear issues as Done when an intern completes a feature action
     (e.g. submitting a check-in marks all 'checkin' tasks for that week as Done).
+    If comment is given, it is posted on each matching issue first.
     Returns the number of issues updated.
     """
     from app.db.sqlite import get_linear_issues_for_intern, upsert_linear_issue  # noqa: PLC0415
@@ -325,6 +331,9 @@ def complete_linked_tasks(intern_id: str, week_number: int | None, linked_featur
             continue
         if week_number is not None and issue.get("due_week") not in (None, week_number):
             continue
+
+        if comment:
+            comment_on_issue(issue["id"], comment)
 
         ok = update_issue_state(issue["id"], "Done")
         if ok:

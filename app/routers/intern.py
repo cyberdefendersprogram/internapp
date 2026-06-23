@@ -175,7 +175,14 @@ async def checkin_submit(
     success = sheets.append_checkin(data)
 
     if success:
-        linear_complete(intern.intern_id, week_number, "checkin")
+        comment_parts = [
+            f"**Week {week_number} check-in**",
+            f"\n\n**Status:** {data['status_update']}",
+        ]
+        if data["blockers"]:
+            comment_parts.append(f"\n\n**Blockers:** {data['blockers']}")
+        comment_parts.append(f"\n\n**Next steps:** {data['next_steps']}")
+        linear_complete(intern.intern_id, week_number, "checkin", comment="".join(comment_parts))
 
     if not success:
         return templates.TemplateResponse(
