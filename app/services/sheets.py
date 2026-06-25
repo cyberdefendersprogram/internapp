@@ -660,7 +660,6 @@ class SheetsClient:
         try:
             worksheet = self._get_worksheet("Email_Log")
             headers = worksheet.row_values(1)
-            # Map to Email_Log columns
             log_data = {
                 "sent_at": data.get("requested_at", ""),
                 "sender_email": "",
@@ -670,6 +669,7 @@ class SheetsClient:
                 "template": "magic_link",
                 "status": data.get("result", ""),
                 "note": data.get("note", ""),
+                "ip_address": data.get("ip_address", ""),
             }
             row = [log_data.get(h, "") for h in headers]
             worksheet.append_row(row, value_input_option="RAW")

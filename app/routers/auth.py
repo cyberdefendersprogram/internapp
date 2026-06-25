@@ -44,24 +44,53 @@ async def signin_page(request: Request):
     )
 
 
+def _client_ip(request: Request) -> str:
+    """Return the real client IP, respecting X-Forwarded-For from the Nginx proxy."""
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _is_registered(email: str, sheets) -> bool:
+    """Return True if the email belongs to a known admin, roster member, or sponsor."""
+    if email in settings.admin_email_list:
+        return True
+    if sheets.get_roster_by_email(email):
+        return True
+    if sheets.get_track_by_sponsor_email(email):
+        return True
+    return False
+
+
+_GENERIC_SUCCESS = (
+    "If this email is registered, you'll receive a sign-in link shortly. Check your inbox."
+)
+
+
 @router.post("/auth/request-link")
 async def request_magic_link(request: Request, email: str = Form(...)):
     """
     Request a magic link email.
 
     Returns same response for known/unknown emails to prevent enumeration.
+    Silently drops requests from emails not in the roster/admin/sponsor lists.
     """
     email = email.strip().lower()
+    ip = _client_ip(request)
     sheets = get_sheets_client()
 
     # Rate limit check (10 per email per 15 min)
     allowed, count = check_rate_limit(email)
     if not allowed:
-        logger.warning("Rate limited magic link request for %s (count: %d)", email, count)
+        logger.warning(
+            "Rate limited magic link request for %s from %s (count: %d)", email, ip, count
+        )
         sheets.append_magic_link_request(
             {
                 "requested_at": datetime.utcnow().isoformat(),
                 "email": email,
+                "ip_address": ip,
                 "result": "rate_limited",
                 "note": f"Count: {count}",
             }
@@ -75,18 +104,33 @@ async def request_magic_link(request: Request, email: str = Form(...)):
             },
         )
 
-    # Create magic token
+    # Roster gate — don't send or create a token for unrecognised emails
+    if not _is_registered(email, sheets):
+        logger.warning("Magic link request from unregistered email %s (ip: %s)", email, ip)
+        sheets.append_magic_link_request(
+            {
+                "requested_at": datetime.utcnow().isoformat(),
+                "email": email,
+                "ip_address": ip,
+                "result": "not_in_roster",
+                "note": "",
+            }
+        )
+        return templates.TemplateResponse(
+            "signin.html",
+            {"request": request, "error": None, "success": _GENERIC_SUCCESS},
+        )
+
+    # Create magic token and send
     token = create_magic_token(email)
     magic_link = f"{settings.base_url}/auth/verify?token={token}"
-
-    # Send email
     result = await send_magic_link_email(email, magic_link)
 
-    # Log to sheets
     sheets.append_magic_link_request(
         {
             "requested_at": datetime.utcnow().isoformat(),
             "email": email,
+            "ip_address": ip,
             "result": "sent" if result.success else "error",
             "note": result.error or "",
         }
@@ -95,14 +139,10 @@ async def request_magic_link(request: Request, email: str = Form(...)):
     if not result.success:
         logger.error("Failed to send magic link to %s: %s", email, result.error)
 
-    logger.info("Magic link requested for %s", email)
+    logger.info("Magic link requested for %s from %s", email, ip)
     return templates.TemplateResponse(
         "signin.html",
-        {
-            "request": request,
-            "error": None,
-            "success": "If this email is registered, you'll receive a sign-in link shortly. Check your inbox.",
-        },
+        {"request": request, "error": None, "success": _GENERIC_SUCCESS},
     )
 
 

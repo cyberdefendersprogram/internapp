@@ -260,6 +260,7 @@ def create_structure(spreadsheet):
             "template",
             "status",
             "note",
+            "ip_address",
         ],
         "Config": [
             "key",
