@@ -118,7 +118,11 @@ async def request_magic_link(request: Request, email: str = Form(...)):
         )
         return templates.TemplateResponse(
             "signin.html",
-            {"request": request, "error": None, "success": _GENERIC_SUCCESS},
+            {
+                "request": request,
+                "error": "This email is not registered in the program. Please contact your system administrator.",
+                "success": None,
+            },
         )
 
     # Create magic token and send
