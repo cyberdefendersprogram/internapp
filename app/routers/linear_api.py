@@ -122,12 +122,9 @@ async def _handle_issue_event(action: str, data: dict) -> None:
 
     # Decide which DM to send
     if action == "update" and state_type == "completed":
-        # Only DM if completed by someone else (the intern completing via portal is self-initiated)
-        if not cached or cached.get("state_type") == "completed":
-            return  # already knew it was done
-        msg = _DM_TEMPLATES["completed_by_other"].format(title=title, url=url)
-        send_dm(intern.discord_id, msg)
-        # Refresh cache
+        already_done = cached and cached.get("state_type") == "completed"
+        # Always update the SQLite cache so the portal reflects Linear's state,
+        # even for issues not previously in the cache (e.g. directly-created tasks).
         upsert_linear_issue(
             issue_id=issue_id,
             intern_id=intern.intern_id,
@@ -139,6 +136,10 @@ async def _handle_issue_event(action: str, data: dict) -> None:
             due_week=cached.get("due_week") if cached else None,
             linked_feature=cached.get("linked_feature", "") if cached else "",
         )
+        if already_done:
+            return  # already knew it was done — skip DM
+        msg = _DM_TEMPLATES["completed_by_other"].format(title=title, url=url)
+        send_dm(intern.discord_id, msg)
     elif action == "update" and assignee_linear_id:
         # Issue was (re)assigned — check if assignee changed
         msg = _DM_TEMPLATES["assigned"].format(title=title, url=url)

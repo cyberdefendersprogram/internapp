@@ -224,6 +224,14 @@ async def deliverables_page(request: Request, intern: OnboardedIntern):
     """View own deliverables and submit form."""
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
+
+    # Sync from Linear if the 5-min cache is stale (same logic as home page).
+    # Without this, interns who mark tasks Done directly in Linear would see stale
+    # state on this page for up to 24 hours (the TTL used by _get_deliverable_tasks).
+    fresh = get_linear_issues_for_intern(intern.intern_id)
+    if not fresh and intern.linear_user_id:
+        sync_intern_issues_from_linear(intern.intern_id, intern.linear_user_id)
+
     open_tasks, done_tasks = _get_deliverable_tasks(intern.intern_id)
     submitted = request.query_params.get("submitted") == "1"
 
