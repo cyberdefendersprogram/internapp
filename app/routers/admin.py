@@ -1,7 +1,7 @@
 """Admin routes."""
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Form, Request
@@ -155,6 +155,7 @@ async def admin_intern_detail(
             "week_number": week_number,
             "note_saved": note_saved,
             "session_role": session.role,
+            "now_date": date.today().isoformat(),
         },
     )
 

@@ -359,26 +359,68 @@ def complete_linked_tasks(
     return completed
 
 
+def _load_template_index() -> list[dict]:
+    """Return Task_Templates rows for title-matching during sync. Fails silently."""
+    try:
+        from app.services.sheets import get_sheets_client  # noqa: PLC0415
+
+        ws = get_sheets_client()._get_worksheet("Task_Templates")
+        return ws.get_all_records()
+    except Exception:
+        return []
+
+
+def _match_template(title: str, templates: list[dict]) -> tuple[str, int | None]:
+    """
+    Infer (linked_feature, due_week) from an issue title.
+
+    Fanout titles follow: "{template_title} — {intern_name}"
+    Match the part before " — " against template titles.
+    Returns ("", None) if no match.
+    """
+    prefix = title.split(" — ")[0].strip() if " — " in title else title.strip()
+    for tmpl in templates:
+        if tmpl.get("title", "").strip() == prefix:
+            due = tmpl.get("due_week")
+            return tmpl.get("linked_feature", ""), int(due) if due else None
+    return "", None
+
+
 def sync_intern_issues_from_linear(intern_id: str, linear_user_id: str) -> list[dict]:
     """
     Pull latest issue states from Linear for an intern and refresh the SQLite cache.
     Called on home page load when cache is stale.
-    Returns the refreshed issue list.
+
+    For issues not already tagged in SQLite (e.g. created directly in Linear rather
+    than via fanout), tries to derive linked_feature and due_week by matching the
+    issue title against Task_Templates so they appear in the right portal sections.
     """
-    from app.db.sqlite import upsert_linear_issue  # noqa: PLC0415
+    from app.db.sqlite import get_linear_issue_by_id, upsert_linear_issue  # noqa: PLC0415
 
     issues = get_issues_for_intern(linear_user_id)
+    templates = _load_template_index()
+
     for issue in issues:
         state_name = issue.get("state", {}).get("name", "Todo")
+        cached = get_linear_issue_by_id(issue["id"])
+
+        # Preserve linked_feature / due_week already recorded in SQLite.
+        # For new issues, try to derive them from the title.
+        if cached and cached.get("linked_feature"):
+            linked_feature = cached["linked_feature"]
+            due_week = cached.get("due_week")
+        else:
+            linked_feature, due_week = _match_template(issue["title"], templates)
+
         upsert_linear_issue(
             issue_id=issue["id"],
             intern_id=intern_id,
-            template_id="",  # we don't know the template for issues synced from Linear
+            template_id=cached.get("template_id", "") if cached else "",
             title=issue["title"],
             state=state_name,
             state_type=STATE_TYPES.get(state_name, "unstarted"),
             url=issue.get("url", ""),
-            due_week=None,
-            linked_feature="",
+            due_week=due_week,
+            linked_feature=linked_feature,
         )
     return issues
