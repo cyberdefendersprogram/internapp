@@ -302,7 +302,9 @@ def upsert_linear_issue(
                    state = excluded.state,
                    state_type = excluded.state_type,
                    url = excluded.url,
-                   synced_at = excluded.synced_at""",
+                   synced_at = excluded.synced_at,
+                   linked_feature = CASE WHEN linear_issues.linked_feature = '' THEN excluded.linked_feature ELSE linear_issues.linked_feature END,
+                   due_week = CASE WHEN linear_issues.due_week IS NULL THEN excluded.due_week ELSE linear_issues.due_week END""",
             (
                 issue_id,
                 intern_id,
