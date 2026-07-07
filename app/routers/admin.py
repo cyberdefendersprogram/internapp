@@ -16,10 +16,10 @@ from app.db.sqlite import (
     update_meeting_note,
 )
 from app.dependencies import AdminOrMentorSession, AdminSession, templates
-from app.routers.intern import compute_week_number
+from app.routers.intern import SURVEY_TITLES, compute_week_number
 from app.services.cache import get_cache_stats, invalidate_all
 from app.services.email import send_email
-from app.services.sheets import get_sheets_client
+from app.services.sheets import SURVEY_SHEET_NAMES, get_sheets_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin")
@@ -552,6 +552,28 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
             "preview_mode": True,
             "preview_back_url": f"/admin/intern/{intern_id}",
             "session": None,
+        },
+    )
+
+
+@router.get("/survey/{survey_type}/preview", response_class=HTMLResponse)
+async def preview_survey(request: Request, survey_type: str, session: AdminSession):
+    """Render a survey form read-only for admins, who never complete intern onboarding
+    and so can't hit the real /survey/{type} route (gated on OnboardedIntern)."""
+    if survey_type not in SURVEY_SHEET_NAMES:
+        return HTMLResponse("Unknown survey.", status_code=404)
+
+    logger.info("Admin %s previewing survey %s", session.email, survey_type)
+    return templates.TemplateResponse(
+        "survey.html",
+        {
+            "request": request,
+            "intern": None,
+            "survey_type": survey_type,
+            "survey_title": SURVEY_TITLES.get(survey_type, "Survey"),
+            "response": None,
+            "error": None,
+            "preview_mode": True,
         },
     )
 
