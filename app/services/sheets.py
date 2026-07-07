@@ -33,6 +33,28 @@ CACHE_TTL_ROSTER = 600  # 10 minutes
 CACHE_TTL_CHECKINS = 300  # 5 minutes
 CACHE_TTL_DELIVERABLES = 300  # 5 minutes
 CACHE_TTL_FEEDBACK = 300  # 5 minutes
+CACHE_TTL_SURVEYS = 300  # 5 minutes
+
+# survey_type -> worksheet tab name. Add an entry here to support a new survey
+# instance (e.g. "end_program") without touching any of the methods below.
+SURVEY_SHEET_NAMES = {
+    "mid_program": "Mid_Program_Survey",
+}
+
+SURVEY_HEADERS = [
+    "submitted_at",
+    "intern_id",
+    "full_name",
+    "track_id",
+    "satisfaction",
+    "coursework_connection",
+    "growth_areas",
+    "learned_most",
+    "bootcamp_interest",
+    "pace",
+    "could_be_better",
+    "additional_comments",
+]
 
 
 class SheetsClient:
@@ -373,6 +395,55 @@ class SheetsClient:
             return True
         except Exception as e:
             logger.error("Failed to append feedback: %s", e)
+            return False
+
+    # -------------------------------------------------------------------------
+    # Survey methods
+    # -------------------------------------------------------------------------
+
+    def _get_survey_worksheet(self, survey_type: str) -> gspread.Worksheet:
+        """Get (or create) the worksheet tab for a given survey_type."""
+        sheet_name = SURVEY_SHEET_NAMES.get(survey_type)
+        if not sheet_name:
+            raise ValueError(f"Unknown survey_type: {survey_type}")
+        spreadsheet = self._get_spreadsheet()
+        try:
+            return spreadsheet.worksheet(sheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            ws = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=len(SURVEY_HEADERS))
+            ws.update([SURVEY_HEADERS], range_name="A1")
+            logger.info("Created %s tab", sheet_name)
+            return ws
+
+    @cached(ttl_seconds=CACHE_TTL_SURVEYS, prefix="survey_responses")
+    def _get_all_survey_responses(self, survey_type: str) -> list[dict]:
+        """Fetch all responses for a survey_type (cached to avoid N+1 Sheets calls)."""
+        try:
+            ws = self._get_survey_worksheet(survey_type)
+            return ws.get_all_records()
+        except Exception as e:
+            logger.error("Failed to get survey responses (%s): %s", survey_type, e)
+            return []
+
+    def get_survey_response(self, intern_id: str, survey_type: str) -> dict | None:
+        """Return this intern's response to the given survey, or None if not submitted."""
+        for r in self._get_all_survey_responses(survey_type):
+            if str(r.get("intern_id")) == str(intern_id):
+                return r
+        return None
+
+    def append_survey_response(self, survey_type: str, data: dict) -> bool:
+        """Append a survey response row. Caller is responsible for checking for
+        an existing response first (one submission per intern per survey_type)."""
+        try:
+            ws = self._get_survey_worksheet(survey_type)
+            row = [data.get(h, "") for h in SURVEY_HEADERS]
+            ws.append_row(row, value_input_option="RAW")
+            invalidate("survey_responses")
+            logger.info("Appended %s survey response: %s", survey_type, data.get("intern_id"))
+            return True
+        except Exception as e:
+            logger.error("Failed to append %s survey response: %s", survey_type, e)
             return False
 
     # -------------------------------------------------------------------------

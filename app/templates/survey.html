@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ survey_title }} — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/home">Home</a>
+<a class="navbar-item" href="/checkin">Check-In</a>
+<a class="navbar-item" href="/deliverables">Deliverables</a>
+<a class="navbar-item" href="/me">Profile</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">{{ survey_title }}</h1>
+
+{% if response %}
+<div class="notification is-success is-light">
+  <strong>Thanks!</strong> You've already submitted the {{ survey_title }}.
+</div>
+<a href="/home" class="button is-light mt-3">Back to Dashboard</a>
+{% else %}
+
+{% if error %}
+<div class="notification is-danger is-light">{{ error }}</div>
+{% endif %}
+
+<div class="card is-detail">
+  <div class="card-content">
+    <p class="is-size-7 has-text-grey mb-4">
+      Takes about 5 minutes. Your answers help us improve the program for you and future interns.
+    </p>
+    <form method="post" action="/survey/{{ survey_type }}">
+
+      <div class="field">
+        <label class="label">Overall, how satisfied are you with the program so far? <span class="has-text-danger">*</span></label>
+        <div class="control">
+          {% for val, text in [("1","1 — Not satisfied"),("2","2"),("3","3 — Neutral"),("4","4"),("5","5 — Very satisfied")] %}
+          <label class="radio" style="display:block;margin-bottom:4px;">
+            <input type="radio" name="satisfaction" value="{{ val }}" required> {{ text }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">How connected does the internship feel to your coursework or career goals? <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <div class="select">
+            <select name="coursework_connection" required>
+              <option value="" disabled selected>Select one&hellip;</option>
+              <option value="Very connected">Very connected</option>
+              <option value="Somewhat connected">Somewhat connected</option>
+              <option value="Not very connected">Not very connected</option>
+              <option value="Not sure yet">Not sure yet</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Which areas have you grown the most in so far? <span class="has-text-grey is-size-7">(select all that apply)</span></label>
+        <div class="control">
+          {% for area in ["Technical/coding skills","Communication","Teamwork & collaboration","Professional workplace norms","Engineering domain knowledge","Project management","Other"] %}
+          <label class="checkbox" style="display:block;margin-bottom:4px;">
+            <input type="checkbox" name="growth_areas" value="{{ area }}"> {{ area }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">What's the most useful thing you've learned so far? <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <textarea class="textarea" name="learned_most" rows="3" required
+            placeholder="A skill, tool, or lesson that's stuck with you."></textarea>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Would you be interested in a short bootcamp at the intersection of AI and security over the next couple weeks? <span class="has-text-danger">*</span></label>
+        <div class="control">
+          {% for val in ["Yes","No","Maybe"] %}
+          <label class="radio" style="display:inline-block;margin-right:16px;">
+            <input type="radio" name="bootcamp_interest" value="{{ val }}" required> {{ val }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">How would you rate the pace of the internship? <span class="has-text-danger">*</span></label>
+        <div class="control">
+          {% for val in ["Too slow","Just right","Too fast"] %}
+          <label class="radio" style="display:inline-block;margin-right:16px;">
+            <input type="radio" name="pace" value="{{ val }}" required> {{ val }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">What's one thing that could be better? <span class="has-text-grey is-size-7">(optional)</span></label>
+        <div class="control">
+          <textarea class="textarea" name="could_be_better" rows="3"></textarea>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Anything else you want us to know? <span class="has-text-grey is-size-7">(optional)</span></label>
+        <div class="control">
+          <textarea class="textarea" name="additional_comments" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="control">
+          <button type="submit" class="button is-primary">Submit Survey</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

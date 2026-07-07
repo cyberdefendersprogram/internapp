@@ -11,7 +11,7 @@ from app.db.sqlite import get_cached_intern, get_linear_issues_for_intern, set_c
 from app.dependencies import OnboardedIntern, RequiredSession, templates
 from app.services.linear import complete_linked_tasks as linear_complete
 from app.services.linear import sync_intern_issues_from_linear
-from app.services.sheets import SheetsUnavailableError, get_sheets_client
+from app.services.sheets import SURVEY_SHEET_NAMES, SheetsUnavailableError, get_sheets_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,6 +37,10 @@ _ROLE_REDIRECTS = {
     "admin": "/admin",
     "mentor": "/admin/applicants",
     "sponsor": "/sponsor",
+}
+
+SURVEY_TITLES = {
+    "mid_program": "Mid-Program Survey",
 }
 
 
@@ -76,6 +80,8 @@ async def home(request: Request, session: RequiredSession):
     checkins = sheets.get_checkins_for_intern(intern.intern_id)
     checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
 
+    mid_survey_done = sheets.get_survey_response(intern.intern_id, "mid_program") is not None
+
     # Tasks from Linear — serve from SQLite cache (5-min TTL).
     # get_linear_issues_for_intern returns [] when all rows are stale, triggering a sync.
     # This naturally picks up ad-hoc Linear tasks within one TTL cycle (~5 min).
@@ -98,6 +104,7 @@ async def home(request: Request, session: RequiredSession):
             "track": track,
             "week_number": week_number,
             "checked_in_this_week": checked_in_this_week,
+            "mid_survey_done": mid_survey_done,
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
             "mentor": mentor,
@@ -200,6 +207,95 @@ async def checkin_submit(
 
     logger.info("Check-in submitted: %s week %d", intern.intern_id, week_number)
     return RedirectResponse(url="/checkin?submitted=1", status_code=302)
+
+
+@router.get("/survey/{survey_type}", response_class=HTMLResponse)
+async def survey_form(request: Request, intern: OnboardedIntern, survey_type: str):
+    """Show a survey form, or the intern's existing response if already submitted."""
+    if survey_type not in SURVEY_SHEET_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown survey")
+
+    sheets = get_sheets_client()
+    response = sheets.get_survey_response(intern.intern_id, survey_type)
+
+    return templates.TemplateResponse(
+        "survey.html",
+        {
+            "request": request,
+            "intern": intern,
+            "survey_type": survey_type,
+            "survey_title": SURVEY_TITLES.get(survey_type, "Survey"),
+            "response": response,
+            "error": None,
+        },
+    )
+
+
+@router.post("/survey/{survey_type}", response_class=HTMLResponse)
+async def survey_submit(
+    request: Request,
+    intern: OnboardedIntern,
+    survey_type: str,
+    satisfaction: str = Form(...),
+    coursework_connection: str = Form(...),
+    growth_areas: list[str] = Form([]),
+    learned_most: str = Form(...),
+    bootcamp_interest: str = Form(...),
+    pace: str = Form(...),
+    could_be_better: str = Form(""),
+    additional_comments: str = Form(""),
+):
+    """Submit a survey response (one per intern per survey_type)."""
+    if survey_type not in SURVEY_SHEET_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown survey")
+
+    sheets = get_sheets_client()
+
+    if sheets.get_survey_response(intern.intern_id, survey_type):
+        return templates.TemplateResponse(
+            "survey.html",
+            {
+                "request": request,
+                "intern": intern,
+                "survey_type": survey_type,
+                "survey_title": SURVEY_TITLES.get(survey_type, "Survey"),
+                "response": sheets.get_survey_response(intern.intern_id, survey_type),
+                "error": "You have already submitted this survey.",
+            },
+        )
+
+    data = {
+        "submitted_at": datetime.utcnow().isoformat(),
+        "intern_id": intern.intern_id,
+        "full_name": intern.full_name,
+        "track_id": intern.track_id,
+        "satisfaction": satisfaction,
+        "coursework_connection": coursework_connection,
+        "growth_areas": ", ".join(growth_areas),
+        "learned_most": learned_most.strip(),
+        "bootcamp_interest": bootcamp_interest,
+        "pace": pace,
+        "could_be_better": could_be_better.strip(),
+        "additional_comments": additional_comments.strip(),
+    }
+
+    success = sheets.append_survey_response(survey_type, data)
+
+    if not success:
+        return templates.TemplateResponse(
+            "survey.html",
+            {
+                "request": request,
+                "intern": intern,
+                "survey_type": survey_type,
+                "survey_title": SURVEY_TITLES.get(survey_type, "Survey"),
+                "response": None,
+                "error": "Failed to submit survey. Please try again.",
+            },
+        )
+
+    logger.info("Survey submitted: %s %s", survey_type, intern.intern_id)
+    return RedirectResponse(url=f"/survey/{survey_type}?submitted=1", status_code=302)
 
 
 def _get_deliverable_tasks(intern_id: str) -> tuple[list, list]:

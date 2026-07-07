@@ -91,6 +91,11 @@
           {% endif %}
           <a href="/deliverables" class="action-btn outline">&#8679; Submit Deliverable</a>
           <a href="/me" class="action-btn outline">&#9998; Edit Profile</a>
+          {% if not mid_survey_done %}
+          <a href="/survey/mid_program" class="action-btn primary">
+            <span>&#128172;</span> Take Mid-Program Survey
+          </a>
+          {% endif %}
         </div>
       </div>
     </div>
