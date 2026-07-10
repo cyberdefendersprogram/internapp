@@ -353,6 +353,7 @@ async def email_send(
         "confirm-spot": "Action required: confirm your spot by June 17 at 5pm PST",
         "weekly-reminder": f"Week {week_number} check-in is open",
         "missing-checkin": f"Don't forget your Week {week_number} check-in",
+        "demo-meeting": "Mid-Program Checkpoint Demo — Tuesday, July 14, 9-10am PST",
     }
 
     sent = 0
