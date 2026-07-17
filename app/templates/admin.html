@@ -4,6 +4,7 @@
 {% block nav_links %}
 <a class="navbar-item is-active" href="/admin">Dashboard</a>
 <a class="navbar-item" href="/admin/linear">Linear Tasks</a>
+<a class="navbar-item" href="/admin/reviews">Peer Reviews</a>
 <a class="navbar-item" href="/admin/applicants">Applicants</a>
 <a class="navbar-item" href="/admin/email">Send Email</a>
 <a class="navbar-item" href="/program">Public View</a>
@@ -87,6 +88,15 @@
   </div>
 </div>
 <div id="cache-clear-msg" style="display:none;margin-bottom:1rem;"></div>
+
+{% if mid_program_video_url %}
+<div class="notification is-light" style="border-left:4px solid var(--cdp-navy);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem;">
+  <span class="is-size-7">&#127909; Mid-program intern demo presentations are up.</span>
+  <a href="{{ mid_program_video_url }}" target="_blank" rel="noopener" class="button is-small" style="background:var(--cdp-navy);color:#fff;font-weight:700;border:none;">
+    Watch on YouTube
+  </a>
+</div>
+{% endif %}
 <script>
 document.getElementById('reminder-btn').addEventListener('click', async function() {
   this.classList.add('is-loading');

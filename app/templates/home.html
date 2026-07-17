@@ -91,9 +91,7 @@
           <a href="/checkin" class="action-btn outline">&#10003; View Check-In</a>
           {% endif %}
           <a href="/deliverables" class="action-btn outline">&#8679; Submit Deliverable</a>
-          {% if intern.reviewee_names %}
           <a href="/reviews" class="action-btn outline">&#128221; Peer Reviews</a>
-          {% endif %}
           <a href="/me" class="action-btn outline">&#9998; Edit Profile</a>
           {% if not mid_survey_done %}
           <a href="/survey/mid_program" class="action-btn primary">
@@ -266,6 +264,23 @@
       </div>
     </div>
     {% endif %}
+
+    <!-- Peer Reviews -->
+    <div class="card mb-4" style="border-left:4px solid #5893BC;background:#fff;">
+      <div class="card-content" style="padding:1rem 1.25rem;">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:.4rem;">Peer Reviews</p>
+        <p style="color:#555;font-size:13px;margin:0 0 8px;">
+          {% if intern.reviewee_names %}
+          Review your assigned peers and see feedback you've received.
+          {% else %}
+          See feedback you've received from peers.
+          {% endif %}
+        </p>
+        <a href="/reviews" class="button is-small is-fullwidth" style="background:#5893BC;color:#fff;font-weight:700;border:none;">
+          Go to Reviews
+        </a>
+      </div>
+    </div>
 
     <!-- Discord -->
     <div class="card mb-4" style="border-left:4px solid #5865F2;background:#fff;">

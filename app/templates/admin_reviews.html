@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Peer Reviews — Admin{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/admin">Dashboard</a>
+<a class="navbar-item" href="/admin/linear">Linear Tasks</a>
+<a class="navbar-item is-active" href="/admin/reviews">Peer Reviews</a>
+<a class="navbar-item" href="/admin/applicants">Applicants</a>
+<a class="navbar-item" href="/admin/email">Send Email</a>
+<a class="navbar-item" href="/program">Public View</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px;">
+  <h1 class="title cdp-heading" style="margin:0;">Peer Review Status</h1>
+  <span class="tag is-light" style="font-family:'Roboto Mono',monospace;">{{ total_done }}/{{ total_assignments }} submitted</span>
+</div>
+
+{% if rows %}
+{% for row in rows %}
+<div class="card is-detail mb-4">
+  <div class="card-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+      <a href="/admin/intern/{{ row.reviewer.intern_id }}" style="font-weight:700;color:var(--cdp-navy);font-size:14px;">
+        {{ row.reviewer.display_name }}
+      </a>
+      <span class="tag {% if row.done_count == row.total_count %}is-success is-light{% else %}is-warning is-light{% endif %}">
+        {{ row.done_count }}/{{ row.total_count }} reviews done
+      </span>
+    </div>
+    <table class="table is-fullwidth is-size-7" style="margin:0;">
+      <thead>
+        <tr style="background:var(--cdp-light);">
+          <th>Reviewing</th>
+          <th style="text-align:center;">Status</th>
+          <th style="text-align:center;">Rating</th>
+          <th>Strengths</th>
+          <th>Growth Areas</th>
+          <th>Comments</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in row.assignments %}
+        <tr>
+          <td style="font-weight:700;">{{ a.reviewee.display_name }}</td>
+          <td style="text-align:center;">
+            {% if a.review %}
+            <span class="tag is-success is-light is-small">Submitted</span>
+            {% else %}
+            <span class="tag is-warning is-light is-small">Pending</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;">{{ a.review.rating if a.review else '—' }}</td>
+          <td>{{ a.review.strengths if a.review else '—' }}</td>
+          <td>{{ a.review.growth_areas if a.review else '—' }}</td>
+          <td>{{ a.review.comments if a.review else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="notification is-info is-light">No interns have reviewee assignments yet (set the student_reviewer column in Roster).</div>
+{% endif %}
+{% endblock %}

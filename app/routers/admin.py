@@ -16,7 +16,7 @@ from app.db.sqlite import (
     update_meeting_note,
 )
 from app.dependencies import AdminOrMentorSession, AdminSession, templates
-from app.routers.intern import SURVEY_TITLES, compute_week_number
+from app.routers.intern import DEFAULT_MID_PROGRAM_VIDEO_URL, SURVEY_TITLES, compute_week_number
 from app.services.cache import get_cache_stats, invalidate_all
 from app.services.email import send_email
 from app.services.sheets import SURVEY_SHEET_NAMES, get_sheets_client
@@ -39,6 +39,9 @@ async def admin_home(request: Request, session: AdminSession):
     sheets = get_sheets_client()
     week_number = compute_week_number(sheets)
     total_weeks = int(sheets.get_config("program_weeks") or 6)
+    mid_program_video_url = (
+        sheets.get_config("mid_program_video_url") or DEFAULT_MID_PROGRAM_VIDEO_URL
+    )
 
     all_roster = sheets.get_all_roster()
     tracks_list = sheets.get_all_tracks()
@@ -107,6 +110,7 @@ async def admin_home(request: Request, session: AdminSession):
             "total_interns": len(interns),
             "claimed_interns": sum(1 for i in interns if i.is_claimed),
             "checked_in_this_week": checked_in_this_week,
+            "mid_program_video_url": mid_program_video_url,
         },
     )
 
@@ -550,6 +554,8 @@ async def preview_as_intern(request: Request, intern_id: str, session: AdminSess
             "mentor": mentors_with_cal[0] if mentors_with_cal else None,
             "mentors": mentors_with_cal,
             "meeting_notes": [],
+            "mid_program_video_url": sheets.get_config("mid_program_video_url")
+            or DEFAULT_MID_PROGRAM_VIDEO_URL,
             "preview_mode": True,
             "preview_back_url": f"/admin/intern/{intern_id}",
             "session": None,
@@ -575,6 +581,46 @@ async def preview_survey(request: Request, survey_type: str, session: AdminSessi
             "response": None,
             "error": None,
             "preview_mode": True,
+        },
+    )
+
+
+@router.get("/reviews", response_class=HTMLResponse)
+async def admin_reviews(request: Request, session: AdminSession):
+    """Read-only cohort-wide view of peer review assignments and submission status."""
+    sheets = get_sheets_client()
+    all_roster = sheets.get_all_roster()
+    reviewers = [r for r in all_roster if r.role == "intern" and r.reviewee_names]
+
+    rows = []
+    for reviewer in reviewers:
+        reviewees = sheets.resolve_reviewees(reviewer)
+        reviews_by_reviewee_id = {
+            r["reviewee_id"]: r for r in sheets.get_reviews_by_reviewer(reviewer.intern_id)
+        }
+        assignments = [
+            {"reviewee": rv, "review": reviews_by_reviewee_id.get(rv.intern_id)} for rv in reviewees
+        ]
+        rows.append(
+            {
+                "reviewer": reviewer,
+                "assignments": assignments,
+                "done_count": sum(1 for a in assignments if a["review"]),
+                "total_count": len(assignments),
+            }
+        )
+
+    total_assignments = sum(r["total_count"] for r in rows)
+    total_done = sum(r["done_count"] for r in rows)
+
+    logger.info("Admin %s viewed peer review status", session.email)
+    return templates.TemplateResponse(
+        "admin_reviews.html",
+        {
+            "request": request,
+            "rows": rows,
+            "total_assignments": total_assignments,
+            "total_done": total_done,
         },
     )
 

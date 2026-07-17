@@ -479,30 +479,12 @@ async def profile_update(
     )
 
 
-def _resolve_reviewees(sheets, intern) -> list:
-    """Resolve intern.reviewee_names (free-text names) to roster entries.
-
-    Names that don't match a roster entry are skipped (logged) rather than erroring,
-    since student_reviewer is a hand-entered column and typos are possible.
-    """
-    resolved = []
-    for name in intern.reviewee_names:
-        entry = sheets.get_roster_by_name(name)
-        if entry:
-            resolved.append(entry)
-        else:
-            logger.warning(
-                "Reviewer %s: no roster match for reviewee name '%s'", intern.intern_id, name
-            )
-    return resolved
-
-
 @router.get("/reviews", response_class=HTMLResponse)
 async def reviews_page(request: Request, intern: OnboardedIntern):
     """Show assigned peer-review forms and reviews received."""
     sheets = get_sheets_client()
 
-    reviewees = _resolve_reviewees(sheets, intern)
+    reviewees = sheets.resolve_reviewees(intern)
     reviews_by_reviewee_id = {
         r["reviewee_id"]: r for r in sheets.get_reviews_by_reviewer(intern.intern_id)
     }
@@ -541,7 +523,7 @@ async def reviews_submit(
     """Submit (or update) a peer review for one assigned reviewee."""
     sheets = get_sheets_client()
 
-    reviewees = _resolve_reviewees(sheets, intern)
+    reviewees = sheets.resolve_reviewees(intern)
     reviewee = next((r for r in reviewees if r.intern_id == reviewee_id), None)
     if not reviewee:
         raise HTTPException(status_code=403, detail="You are not assigned to review this intern.")

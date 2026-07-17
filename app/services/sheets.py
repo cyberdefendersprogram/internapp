@@ -229,6 +229,23 @@ class SheetsClient:
                 return entry
         return None
 
+    def resolve_reviewees(self, intern: InternEntry) -> list[InternEntry]:
+        """Resolve an intern's reviewee_names (free-text names) to roster entries.
+
+        Names that don't match a roster entry are skipped (logged) rather than erroring,
+        since student_reviewer is a hand-entered column and typos are possible.
+        """
+        resolved = []
+        for name in intern.reviewee_names:
+            entry = self.get_roster_by_name(name)
+            if entry:
+                resolved.append(entry)
+            else:
+                logger.warning(
+                    "Reviewer %s: no roster match for reviewee name '%s'", intern.intern_id, name
+                )
+        return resolved
+
     def get_roster_by_id(self, intern_id: str) -> InternEntry | None:
         """Get roster entry by intern_id, filtered from cached get_all_roster."""
         intern_id_str = str(intern_id)
