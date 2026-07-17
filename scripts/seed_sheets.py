@@ -209,6 +209,9 @@ def create_structure(spreadsheet):
             "last_login_at",
             "discord_id",
             "discord_notify",
+            "cal_link",
+            "linear_user_id",
+            "student_reviewer",
         ],
         "Tracks": [
             "track_id",
@@ -250,6 +253,17 @@ def create_structure(spreadsheet):
             "reviewer_email",
             "rating",
             "feedback",
+        ],
+        "Peer_Reviews": [
+            "submitted_at",
+            "reviewer_id",
+            "reviewer_name",
+            "reviewee_id",
+            "reviewee_name",
+            "rating",
+            "strengths",
+            "growth_areas",
+            "comments",
         ],
         "Email_Log": [
             "sent_at",
@@ -313,6 +327,7 @@ def create_structure(spreadsheet):
         ("program_weeks", "6"),
         ("magic_link_ttl_minutes", "15"),
         ("rate_limit_per_email_15m", "10"),
+        ("mid_program_video_url", "https://youtu.be/UWPSif2RIbE"),
     ]
 
     rows_to_add = []
@@ -524,6 +539,52 @@ def migrate_roster_discord_columns(spreadsheet):
         print("  Roster discord columns already present.")
 
 
+def migrate_roster_reviewer_column(spreadsheet):
+    """Add student_reviewer column to Roster if missing."""
+    roster_ws = spreadsheet.worksheet("Roster")
+    headers = roster_ws.row_values(1)
+
+    if "student_reviewer" in headers:
+        print("  Roster student_reviewer column already present.")
+        return
+
+    next_col = len(headers) + 1
+    roster_ws.update_cell(1, next_col, "student_reviewer")
+    print("  Added Roster column: student_reviewer")
+
+
+def set_reviewer_assignments(spreadsheet, assignments: dict[str, str]):
+    """Write student_reviewer values onto Roster rows, matched by preferred_name.
+
+    assignments: {preferred_name: "Comma, Separated, Reviewee Names"}
+    """
+    roster_ws = spreadsheet.worksheet("Roster")
+    headers = roster_ws.row_values(1)
+    if "student_reviewer" not in headers:
+        print("ERROR: Roster missing student_reviewer column — run --migrate-reviewer first.")
+        return
+
+    col = headers.index("student_reviewer") + 1
+    name_col = headers.index("preferred_name") + 1
+    records = roster_ws.get_all_values()[1:]
+
+    updated, unmatched = 0, []
+    for idx, row in enumerate(records, start=2):
+        pref_name = row[name_col - 1].strip() if len(row) >= name_col else ""
+        if pref_name in assignments:
+            roster_ws.update_cell(idx, col, assignments[pref_name])
+            updated += 1
+
+    matched_names = {row[name_col - 1].strip() for row in records if len(row) >= name_col}
+    for name in assignments:
+        if name not in matched_names:
+            unmatched.append(name)
+
+    print(f"[Roster] Set student_reviewer for {updated} rows.")
+    if unmatched:
+        print(f"[Roster] WARNING — no roster row matched preferred_name for: {unmatched}")
+
+
 def seed_tasks(spreadsheet, target_email: str = "vaibhavb@gmail.com"):
     """Seed sample Task_Templates and a test task for the given email."""
     import uuid
@@ -628,6 +689,17 @@ def seed_tasks(spreadsheet, target_email: str = "vaibhavb@gmail.com"):
                 "normal",
                 "deliverable",
             ],
+            [
+                "tmpl-016",
+                "Complete your peer reviews",
+                "Review the projects of your assigned peers and submit feedback on the portal.",
+                "system",
+                "all",
+                5,
+                5,
+                "normal",
+                "peer_review",
+            ],
             ["tmpl-013", "Submit Week 6 check-in", "", "system", "all", 6, 6, "normal", "checkin"],
             [
                 "tmpl-014",
@@ -726,13 +798,24 @@ def main():
         help="Replace Tracks sheet with CDP 2026 tracks and remap Roster track IDs",
     )
     parser.add_argument(
+        "--migrate-reviewer",
+        action="store_true",
+        help="Add student_reviewer column to Roster",
+    )
+    parser.add_argument(
         "--email",
         default="vaibhavb@gmail.com",
         help="Email address to target for test task seeding (default: vaibhavb@gmail.com)",
     )
     args = parser.parse_args()
 
-    if not (args.create_structure or args.seed_tasks or args.migrate_discord or args.update_tracks):
+    if not (
+        args.create_structure
+        or args.seed_tasks
+        or args.migrate_discord
+        or args.update_tracks
+        or args.migrate_reviewer
+    ):
         parser.print_help()
         sys.exit(0)
 
@@ -756,6 +839,10 @@ def main():
     if args.update_tracks:
         print("\n[Tracks] Updating tracks to CDP 2026 program...")
         update_tracks(spreadsheet)
+
+    if args.migrate_reviewer:
+        print("\n[Roster] Migrating student_reviewer column...")
+        migrate_roster_reviewer_column(spreadsheet)
 
     if args.seed_tasks:
         seed_tasks(spreadsheet, target_email=args.email)

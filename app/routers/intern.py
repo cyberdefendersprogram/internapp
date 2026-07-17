@@ -43,6 +43,8 @@ SURVEY_TITLES = {
     "mid_program": "Mid-Program Survey",
 }
 
+DEFAULT_MID_PROGRAM_VIDEO_URL = "https://youtu.be/UWPSif2RIbE"
+
 
 @router.get("/home", response_class=HTMLResponse)
 async def home(request: Request, session: RequiredSession):
@@ -81,6 +83,9 @@ async def home(request: Request, session: RequiredSession):
     checked_in_this_week = any(str(c.get("week_number")) == str(week_number) for c in checkins)
 
     mid_survey_done = sheets.get_survey_response(intern.intern_id, "mid_program") is not None
+    mid_program_video_url = (
+        sheets.get_config("mid_program_video_url") or DEFAULT_MID_PROGRAM_VIDEO_URL
+    )
 
     # Tasks from Linear — serve from SQLite cache (5-min TTL).
     # get_linear_issues_for_intern returns [] when all rows are stale, triggering a sync.
@@ -105,6 +110,7 @@ async def home(request: Request, session: RequiredSession):
             "week_number": week_number,
             "checked_in_this_week": checked_in_this_week,
             "mid_survey_done": mid_survey_done,
+            "mid_program_video_url": mid_program_video_url,
             "todo_tasks": todo_tasks,
             "done_tasks": done_tasks,
             "mentor": mentor,
@@ -471,3 +477,112 @@ async def profile_update(
             "success": "Profile updated successfully!" if success else None,
         },
     )
+
+
+def _resolve_reviewees(sheets, intern) -> list:
+    """Resolve intern.reviewee_names (free-text names) to roster entries.
+
+    Names that don't match a roster entry are skipped (logged) rather than erroring,
+    since student_reviewer is a hand-entered column and typos are possible.
+    """
+    resolved = []
+    for name in intern.reviewee_names:
+        entry = sheets.get_roster_by_name(name)
+        if entry:
+            resolved.append(entry)
+        else:
+            logger.warning(
+                "Reviewer %s: no roster match for reviewee name '%s'", intern.intern_id, name
+            )
+    return resolved
+
+
+@router.get("/reviews", response_class=HTMLResponse)
+async def reviews_page(request: Request, intern: OnboardedIntern):
+    """Show assigned peer-review forms and reviews received."""
+    sheets = get_sheets_client()
+
+    reviewees = _resolve_reviewees(sheets, intern)
+    reviews_by_reviewee_id = {
+        r["reviewee_id"]: r for r in sheets.get_reviews_by_reviewer(intern.intern_id)
+    }
+    assignments = [
+        {"reviewee": r, "existing_review": reviews_by_reviewee_id.get(r.intern_id)}
+        for r in reviewees
+    ]
+
+    received = sheets.get_reviews_for_reviewee(intern.intern_id)
+
+    return templates.TemplateResponse(
+        "reviews.html",
+        {
+            "request": request,
+            "intern": intern,
+            "assignments": assignments,
+            "received": received,
+            "error": None,
+            "success": "Review submitted!"
+            if request.query_params.get("submitted") == "1"
+            else None,
+        },
+    )
+
+
+@router.post("/reviews/{reviewee_id}", response_class=HTMLResponse)
+async def reviews_submit(
+    request: Request,
+    intern: OnboardedIntern,
+    reviewee_id: str,
+    rating: str = Form(...),
+    strengths: str = Form(""),
+    growth_areas: str = Form(""),
+    comments: str = Form(""),
+):
+    """Submit (or update) a peer review for one assigned reviewee."""
+    sheets = get_sheets_client()
+
+    reviewees = _resolve_reviewees(sheets, intern)
+    reviewee = next((r for r in reviewees if r.intern_id == reviewee_id), None)
+    if not reviewee:
+        raise HTTPException(status_code=403, detail="You are not assigned to review this intern.")
+
+    success = sheets.upsert_peer_review(
+        reviewer_id=intern.intern_id,
+        reviewer_name=intern.display_name,
+        reviewee_id=reviewee.intern_id,
+        reviewee_name=reviewee.display_name,
+        rating=rating,
+        strengths=strengths.strip(),
+        growth_areas=growth_areas.strip(),
+        comments=comments.strip(),
+    )
+
+    if not success:
+        reviews_by_reviewee_id = {
+            r["reviewee_id"]: r for r in sheets.get_reviews_by_reviewer(intern.intern_id)
+        }
+        assignments = [
+            {"reviewee": r, "existing_review": reviews_by_reviewee_id.get(r.intern_id)}
+            for r in reviewees
+        ]
+        return templates.TemplateResponse(
+            "reviews.html",
+            {
+                "request": request,
+                "intern": intern,
+                "assignments": assignments,
+                "received": sheets.get_reviews_for_reviewee(intern.intern_id),
+                "error": "Failed to submit review. Please try again.",
+                "success": None,
+            },
+        )
+
+    # If every assigned reviewee now has a review, mark the Linear peer-review task Done.
+    reviewed_ids = {r["reviewee_id"] for r in sheets.get_reviews_by_reviewer(intern.intern_id)}
+    if all(r.intern_id in reviewed_ids for r in reviewees):
+        linear_complete(
+            intern.intern_id, None, "peer_review", comment="All peer reviews submitted."
+        )
+
+    logger.info("Peer review submitted: %s -> %s", intern.intern_id, reviewee_id)
+    return RedirectResponse(url="/reviews?submitted=1", status_code=302)

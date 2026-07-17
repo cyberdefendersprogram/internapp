@@ -34,6 +34,7 @@ CACHE_TTL_CHECKINS = 300  # 5 minutes
 CACHE_TTL_DELIVERABLES = 300  # 5 minutes
 CACHE_TTL_FEEDBACK = 300  # 5 minutes
 CACHE_TTL_SURVEYS = 300  # 5 minutes
+CACHE_TTL_PEER_REVIEWS = 300  # 5 minutes
 
 # survey_type -> worksheet tab name. Add an entry here to support a new survey
 # instance (e.g. "end_program") without touching any of the methods below.
@@ -54,6 +55,18 @@ SURVEY_HEADERS = [
     "pace",
     "could_be_better",
     "additional_comments",
+]
+
+PEER_REVIEW_HEADERS = [
+    "submitted_at",
+    "reviewer_id",
+    "reviewer_name",
+    "reviewee_id",
+    "reviewee_name",
+    "rating",
+    "strengths",
+    "growth_areas",
+    "comments",
 ]
 
 
@@ -196,6 +209,23 @@ class SheetsClient:
         email_lower = email.lower()
         for entry in self.get_all_roster():
             if (entry.preferred_email or "").lower() == email_lower:
+                return entry
+        return None
+
+    def get_roster_by_name(self, name: str) -> InternEntry | None:
+        """Get roster entry by preferred_name or display_name (case-insensitive).
+
+        Used to resolve the free-text names in Roster.student_reviewer to actual
+        intern records, since that column is populated by hand as names, not IDs.
+        """
+        name_lower = name.strip().lower()
+        if not name_lower:
+            return None
+        for entry in self.get_all_roster():
+            if (entry.preferred_name or "").strip().lower() == name_lower:
+                return entry
+        for entry in self.get_all_roster():
+            if entry.display_name.strip().lower() == name_lower:
                 return entry
         return None
 
@@ -444,6 +474,107 @@ class SheetsClient:
             return True
         except Exception as e:
             logger.error("Failed to append %s survey response: %s", survey_type, e)
+            return False
+
+    # -------------------------------------------------------------------------
+    # Peer review methods
+    # -------------------------------------------------------------------------
+
+    def _get_peer_reviews_worksheet(self) -> gspread.Worksheet:
+        """Get (or create) the Peer_Reviews worksheet tab."""
+        spreadsheet = self._get_spreadsheet()
+        try:
+            return spreadsheet.worksheet("Peer_Reviews")
+        except gspread.exceptions.WorksheetNotFound:
+            ws = spreadsheet.add_worksheet(
+                title="Peer_Reviews", rows=1000, cols=len(PEER_REVIEW_HEADERS)
+            )
+            ws.update([PEER_REVIEW_HEADERS], range_name="A1")
+            logger.info("Created Peer_Reviews tab")
+            return ws
+
+    @cached(ttl_seconds=CACHE_TTL_PEER_REVIEWS, prefix="peer_reviews")
+    def get_all_peer_reviews(self) -> list[dict]:
+        """Fetch entire Peer_Reviews tab once; cached to prevent N+1 Sheets calls."""
+        try:
+            ws = self._get_peer_reviews_worksheet()
+            return ws.get_all_records()
+        except Exception as e:
+            logger.error("Failed to get peer reviews: %s", e)
+            return []
+
+    def get_reviews_by_reviewer(self, reviewer_id: str) -> list[dict]:
+        """Return all reviews this intern has submitted about peers."""
+        return [
+            r for r in self.get_all_peer_reviews() if str(r.get("reviewer_id")) == str(reviewer_id)
+        ]
+
+    def get_reviews_for_reviewee(self, reviewee_id: str) -> list[dict]:
+        """Return all reviews this intern has received from peers."""
+        return [
+            r for r in self.get_all_peer_reviews() if str(r.get("reviewee_id")) == str(reviewee_id)
+        ]
+
+    def get_peer_review(self, reviewer_id: str, reviewee_id: str) -> dict | None:
+        """Return the existing review for this reviewer/reviewee pair, or None."""
+        for r in self.get_reviews_by_reviewer(reviewer_id):
+            if str(r.get("reviewee_id")) == str(reviewee_id):
+                return r
+        return None
+
+    def upsert_peer_review(
+        self,
+        *,
+        reviewer_id: str,
+        reviewer_name: str,
+        reviewee_id: str,
+        reviewee_name: str,
+        rating: str,
+        strengths: str,
+        growth_areas: str,
+        comments: str,
+    ) -> bool:
+        """Append a new peer review row (or update the existing one for this pair)."""
+        try:
+            ws = self._get_peer_reviews_worksheet()
+            records = ws.get_all_records()
+            now = datetime.utcnow().isoformat()
+            data = {
+                "submitted_at": now,
+                "reviewer_id": reviewer_id,
+                "reviewer_name": reviewer_name,
+                "reviewee_id": reviewee_id,
+                "reviewee_name": reviewee_name,
+                "rating": rating,
+                "strengths": strengths,
+                "growth_areas": growth_areas,
+                "comments": comments,
+            }
+
+            for idx, record in enumerate(records):
+                if str(record.get("reviewer_id")) == str(reviewer_id) and str(
+                    record.get("reviewee_id")
+                ) == str(reviewee_id):
+                    row_num = idx + 2  # 1-based + header
+                    row = [data.get(h, "") for h in PEER_REVIEW_HEADERS]
+                    ws.update(
+                        [row],
+                        gspread.utils.rowcol_to_a1(row_num, 1)
+                        + ":"
+                        + gspread.utils.rowcol_to_a1(row_num, len(PEER_REVIEW_HEADERS)),
+                        value_input_option="RAW",
+                    )
+                    invalidate("peer_reviews")
+                    logger.info("Updated peer review %s -> %s", reviewer_id, reviewee_id)
+                    return True
+
+            row = [data.get(h, "") for h in PEER_REVIEW_HEADERS]
+            ws.append_row(row, value_input_option="RAW")
+            invalidate("peer_reviews")
+            logger.info("Appended peer review %s -> %s", reviewer_id, reviewee_id)
+            return True
+        except Exception as e:
+            logger.error("Failed to upsert peer review %s -> %s: %s", reviewer_id, reviewee_id, e)
             return False
 
     # -------------------------------------------------------------------------

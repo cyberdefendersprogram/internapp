@@ -26,6 +26,14 @@ class InternEntry:
     discord_notify: bool = True
     cal_link: str | None = None
     linear_user_id: str | None = None
+    student_reviewer: str | None = None
+
+    @property
+    def reviewee_names(self) -> list[str]:
+        """Return list of peer names this intern is assigned to review (comma-separated in sheet)."""
+        if not self.student_reviewer:
+            return []
+        return [n.strip() for n in self.student_reviewer.split(",") if n.strip()]
 
     @property
     def track_ids(self) -> list[str]:
@@ -85,6 +93,7 @@ class InternEntry:
             discord_notify=str(row.get("discord_notify", "true")).lower() not in ("false", "0", ""),
             cal_link=row.get("cal_link") or None,
             linear_user_id=row.get("linear_user_id") or None,
+            student_reviewer=row.get("student_reviewer") or None,
         )
 
     def get_empty_profile_fields(self) -> list[str]:

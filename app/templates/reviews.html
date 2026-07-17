@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Peer Reviews — CDP Intern Portal{% endblock %}
+
+{% block nav_links %}
+<a class="navbar-item" href="/home">Home</a>
+<a class="navbar-item" href="/checkin">Check-In</a>
+<a class="navbar-item" href="/deliverables">Deliverables</a>
+<a class="navbar-item is-active" href="/reviews">Reviews</a>
+<a class="navbar-item" href="/me">Profile</a>
+<a class="navbar-item" href="/auth/logout">Sign Out</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="title cdp-heading">Peer Reviews</h1>
+<p class="is-size-7 has-text-grey mb-4">Review your assigned peers' projects, and see what feedback you've received.</p>
+
+{% if error %}
+<div class="notification is-danger is-light">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="notification is-success is-light">{{ success }}</div>
+{% endif %}
+
+<div class="columns">
+  <div class="column is-half">
+    <h2 class="subtitle is-6 cdp-heading">Reviews to Complete
+      {% if assignments %}<span class="has-text-grey" style="font-weight:400;">({{ assignments | selectattr("existing_review") | list | length }}/{{ assignments|length }} done)</span>{% endif %}
+    </h2>
+
+    {% if assignments %}
+    {% for a in assignments %}
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <h3 class="is-size-6" style="font-weight:700;color:var(--cdp-navy);">{{ a.reviewee.display_name }}</h3>
+          {% if a.existing_review %}
+          <span class="tag is-success is-light">Submitted</span>
+          {% endif %}
+        </div>
+        <form method="post" action="/reviews/{{ a.reviewee.intern_id }}">
+          <div class="field">
+            <label class="label is-size-7">Overall rating <span class="has-text-danger">*</span></label>
+            <div class="control">
+              {% for val, text in [("1","1 — Needs work"),("2","2"),("3","3 — Solid"),("4","4"),("5","5 — Outstanding")] %}
+              <label class="radio is-size-7" style="display:inline-block;margin-right:10px;">
+                <input type="radio" name="rating" value="{{ val }}" required
+                  {% if a.existing_review and a.existing_review.rating == val %}checked{% endif %}> {{ text }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-size-7">Strengths</label>
+            <div class="control">
+              <textarea class="textarea" name="strengths" rows="2"
+                placeholder="What did they do well?">{{ a.existing_review.strengths if a.existing_review else "" }}</textarea>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-size-7">Growth areas</label>
+            <div class="control">
+              <textarea class="textarea" name="growth_areas" rows="2"
+                placeholder="What could they improve?">{{ a.existing_review.growth_areas if a.existing_review else "" }}</textarea>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-size-7">Other comments</label>
+            <div class="control">
+              <textarea class="textarea" name="comments" rows="2">{{ a.existing_review.comments if a.existing_review else "" }}</textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <button type="submit" class="button is-primary is-small">
+                {{ "Update Review" if a.existing_review else "Submit Review" }}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="notification is-light">
+      <p class="is-size-7">You don't have any peer reviews assigned right now.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="column is-half">
+    <h2 class="subtitle is-6 cdp-heading">Reviews You've Received ({{ received|length }})</h2>
+    {% if received %}
+    {% for r in received %}
+    <div class="card is-detail mb-4">
+      <div class="card-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+          <span class="is-size-7 has-text-grey">From a peer</span>
+          {% if r.rating %}
+          <span class="tag" style="background:var(--cdp-navy);color:#fff;">{{ r.rating }}/5</span>
+          {% endif %}
+        </div>
+        {% if r.strengths %}
+        <p class="is-size-7" style="margin:0 0 6px;"><strong>Strengths:</strong> {{ r.strengths }}</p>
+        {% endif %}
+        {% if r.growth_areas %}
+        <p class="is-size-7" style="margin:0 0 6px;"><strong>Growth areas:</strong> {{ r.growth_areas }}</p>
+        {% endif %}
+        {% if r.comments %}
+        <p class="is-size-7" style="margin:0;"><strong>Comments:</strong> {{ r.comments }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="notification is-light">
+      <p class="is-size-7">No reviews received yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

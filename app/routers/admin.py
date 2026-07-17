@@ -686,7 +686,8 @@ async def linear_fanout(
         applicable = [
             t
             for t in all_templates
-            if not t.get("assigned_to") or t.get("assigned_to") in ("all", intern.track_id)
+            if (not t.get("assigned_to") or t.get("assigned_to") in ("all", intern.track_id))
+            and (t.get("linked_feature") != "peer_review" or intern.reviewee_names)
         ]
 
         created = fanout_templates_for_intern(intern, track, applicable)

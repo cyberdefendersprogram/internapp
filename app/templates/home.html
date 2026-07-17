@@ -13,6 +13,7 @@
 <a class="navbar-item is-active" href="/home">Home</a>
 <a class="navbar-item" href="/checkin">Check-In</a>
 <a class="navbar-item" href="/deliverables">Deliverables</a>
+<a class="navbar-item" href="/reviews">Reviews</a>
 <a class="navbar-item" href="/me">Profile</a>
 <a class="navbar-item" href="/auth/logout">Sign Out</a>
 {% endif %}
@@ -90,6 +91,9 @@
           <a href="/checkin" class="action-btn outline">&#10003; View Check-In</a>
           {% endif %}
           <a href="/deliverables" class="action-btn outline">&#8679; Submit Deliverable</a>
+          {% if intern.reviewee_names %}
+          <a href="/reviews" class="action-btn outline">&#128221; Peer Reviews</a>
+          {% endif %}
           <a href="/me" class="action-btn outline">&#9998; Edit Profile</a>
           {% if not mid_survey_done %}
           <a href="/survey/mid_program" class="action-btn primary">
@@ -168,6 +172,8 @@
                 &nbsp;·&nbsp;<a href="/deliverables" style="color:var(--cdp-blue);">Submit deliverable</a>
                 {% elif task.linked_feature == 'onboarding' %}
                 &nbsp;·&nbsp;<a href="/me" style="color:var(--cdp-blue);">Complete profile</a>
+                {% elif task.linked_feature == 'peer_review' %}
+                &nbsp;·&nbsp;<a href="/reviews" style="color:var(--cdp-blue);">Go to reviews</a>
                 {% endif %}
               </div>
               {% endif %}
@@ -246,6 +252,20 @@
         </a>
       </div>
     </div>
+
+    {% if mid_program_video_url %}
+    <!-- Mid-Program Demo Presentations -->
+    <div class="card mb-4" style="border-left:4px solid #062F49;background:#fff;">
+      <div class="card-content" style="padding:1rem 1.25rem;">
+        <p class="heading cdp-heading" style="font-size:11px;letter-spacing:1px;margin-bottom:.4rem;">Mid-Program Demos</p>
+        <p style="color:#555;font-size:13px;margin:0 0 8px;">Watch every track's mid-program intern presentations.</p>
+        <a href="{{ mid_program_video_url }}" target="_blank" rel="noopener"
+           class="button is-small is-fullwidth" style="background:#062F49;color:#fff;font-weight:700;border:none;">
+          &#9654; Watch Presentations
+        </a>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Discord -->
     <div class="card mb-4" style="border-left:4px solid #5865F2;background:#fff;">
