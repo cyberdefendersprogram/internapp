@@ -11,6 +11,7 @@ class InternEntry:
     intern_id: str
     full_name: str
     track_id: str = ""
+    presentation_order: int = 0
     role: str = "intern"  # intern | mentor | admin
     preferred_email: str | None = None
     preferred_name: str | None = None
@@ -78,6 +79,7 @@ class InternEntry:
             intern_id=str(row.get("intern_id", "")),
             full_name=row.get("full_name", ""),
             track_id=str(row.get("track_id", "")),
+            presentation_order=_parse_int(row.get("presentation_order")),
             role=role,
             preferred_email=row.get("preferred_email") or None,
             preferred_name=row.get("preferred_name") or None,
@@ -107,6 +109,14 @@ class InternEntry:
             "bio",
         ]
         return [f for f in profile_fields if not getattr(self, f)]
+
+
+def _parse_int(value: object) -> int:
+    """Parse an int from a sheet cell, defaulting to 0 for blank/invalid values."""
+    try:
+        return int(str(value).strip())
+    except (ValueError, TypeError):
+        return 0
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
