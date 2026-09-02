@@ -35,6 +35,8 @@
                     <option value="track">By Track</option>
                     <option value="not_onboarded">Not Yet Onboarded (admitted, no onboarding)</option>
                     <option value="missing_checkin">Missing Check-In (current week)</option>
+                    <option value="completed_interns">Completed Capstone (completed = yes)</option>
+                    <option value="pending_interns">Pending Capstone (completed = pending)</option>
                     <option value="single">Single Intern</option>
                   </optgroup>
                 </select>
@@ -130,11 +132,15 @@
   const AUDIENCE_TEMPLATE_MAP = {
     'waitlist_applicants': 'waitlist',
     'declined_applicants': 'decline',
+    'completed_interns': 'credential-issued',
+    'pending_interns': 'complete-your-capstone',
   };
   const TEMPLATE_AUDIENCE_MAP = {
     'welcome': 'admitted',
     'kickoff': 'admitted',
     'confirm-spot': 'not_onboarded',
+    'credential-issued': 'completed_interns',
+    'complete-your-capstone': 'pending_interns',
   };
 
   audienceSelect.addEventListener('change', function() {

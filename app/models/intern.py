@@ -28,6 +28,40 @@ class InternEntry:
     cal_link: str | None = None
     linear_user_id: str | None = None
     student_reviewer: str | None = None
+    completed: str | None = None
+    work_url: str | None = None
+    presentation_url: str | None = None
+    sponsor_org: str | None = None
+
+    @property
+    def is_capstone_completed(self) -> bool:
+        """True if the intern's completed field is 'yes' (final deliverables submitted)."""
+        return (self.completed or "").strip().lower() == "yes"
+
+    @property
+    def is_capstone_pending(self) -> bool:
+        """True if the intern's completed field is 'pending' (still finishing deliverables)."""
+        return (self.completed or "").strip().lower() == "pending"
+
+    @property
+    def work_urls(self) -> list[str]:
+        """Return list of work URLs (comma-separated in sheet)."""
+        if not self.work_url:
+            return []
+        return [u.strip() for u in self.work_url.split(",") if u.strip()]
+
+    @property
+    def sponsor_orgs(self) -> list[str]:
+        """Return list of sponsor organizations (comma-separated in sheet)."""
+        if not self.sponsor_org:
+            return []
+        return [o.strip() for o in self.sponsor_org.split(",") if o.strip()]
+
+    @property
+    def credential_url(self) -> str:
+        """Public verify URL for this intern's CyberDefenders credential."""
+        slug = self.intern_id.strip().lower()
+        return f"https://cyberdefendersprogram.com/verify/{slug}/"
 
     @property
     def reviewee_names(self) -> list[str]:
@@ -96,6 +130,10 @@ class InternEntry:
             cal_link=row.get("cal_link") or None,
             linear_user_id=row.get("linear_user_id") or None,
             student_reviewer=row.get("student_reviewer") or None,
+            completed=row.get("completed") or None,
+            work_url=row.get("work_url") or None,
+            presentation_url=row.get("presentation_url") or None,
+            sponsor_org=row.get("sponsor_org") or None,
         )
 
     def get_empty_profile_fields(self) -> list[str]:

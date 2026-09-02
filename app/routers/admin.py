@@ -297,7 +297,16 @@ async def email_preview(
     # Intern-audience templates
     all_interns = sheets.get_all_roster()
     claimed = [i for i in all_interns if i.is_claimed]
-    sample = claimed[0] if claimed else None
+    if template_slug == "credential-issued":
+        sample = next((i for i in claimed if i.is_capstone_completed), None) or (
+            claimed[0] if claimed else None
+        )
+    elif template_slug == "complete-your-capstone":
+        sample = next((i for i in claimed if i.is_capstone_pending), None) or (
+            claimed[0] if claimed else None
+        )
+    else:
+        sample = claimed[0] if claimed else None
 
     if not sample:
         return JSONResponse({"preview": "<p>No claimed interns found for preview.</p>"})
@@ -308,6 +317,8 @@ async def email_preview(
         "intern_name": sample.display_name,
         "track_name": track.name if track else "",
         "sponsor_name": track.employer_sponsor if track else "",
+        "sponsor_org": ", ".join(sample.sponsor_orgs) or (track.employer_sponsor if track else ""),
+        "credential_url": sample.credential_url,
         "week_number": week_number,
         "checkin_url": f"{settings.base_url}/checkin",
         "deliverables_url": f"{settings.base_url}/deliverables",
@@ -359,6 +370,8 @@ async def email_send(
         "missing-checkin": f"Don't forget your Week {week_number} check-in",
         "demo-meeting": "Mid-Program Checkpoint Demo — Tuesday, July 14, 9-10am PST",
         "final-presentations": "Final Cohort Presentations — Tuesday, Aug 11, 9-11am PST",
+        "credential-issued": f"Your {program_title} credential is live",
+        "complete-your-capstone": "Action needed: finish your capstone this week",
     }
 
     sent = 0
@@ -441,6 +454,16 @@ async def email_send(
             checked_in = any(str(c.get("week_number")) == str(week_number) for c in checkins)
             if not checked_in:
                 recipients.append(intern)
+    elif audience == "completed_interns":
+        recipients = [
+            i
+            for i in all_interns
+            if i.role == "intern" and i.is_claimed and i.is_capstone_completed
+        ]
+    elif audience == "pending_interns":
+        recipients = [
+            i for i in all_interns if i.role == "intern" and i.is_claimed and i.is_capstone_pending
+        ]
     elif audience == "single" and intern_id_single:
         intern = sheets.get_roster_by_id(intern_id_single)
         recipients = [intern] if intern and intern.is_claimed else []
@@ -455,6 +478,9 @@ async def email_send(
             "intern_name": intern.display_name,
             "track_name": track.name if track else "",
             "sponsor_name": track.employer_sponsor if track else "",
+            "sponsor_org": ", ".join(intern.sponsor_orgs)
+            or (track.employer_sponsor if track else ""),
+            "credential_url": intern.credential_url,
             "week_number": week_number,
             "checkin_url": f"{settings.base_url}/checkin",
             "deliverables_url": f"{settings.base_url}/deliverables",
