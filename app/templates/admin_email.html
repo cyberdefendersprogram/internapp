@@ -156,6 +156,10 @@
 
   templateSelect.addEventListener('change', function() {
     document.getElementById('customFields').style.display = this.value === 'custom' ? 'block' : 'none';
+    // Don't clobber an explicit Single Intern / By Track selection with the
+    // template's suggested broad audience — that silently widened a one-off
+    // send into "everyone who completed their capstone" before.
+    if (audienceSelect.value === 'single' || audienceSelect.value === 'track') return;
     const suggestedAudience = TEMPLATE_AUDIENCE_MAP[this.value];
     if (suggestedAudience) audienceSelect.value = suggestedAudience;
   });
