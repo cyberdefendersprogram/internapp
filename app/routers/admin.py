@@ -268,6 +268,7 @@ async def email_preview(
     template_slug: str = Form("welcome"),
     track_id: str = Form(""),
     intern_id: str = Form(""),
+    intern_id_single: str = Form(""),
     custom_subject: str = Form(""),
     custom_body: str = Form(""),
 ):
@@ -297,7 +298,9 @@ async def email_preview(
     # Intern-audience templates
     all_interns = sheets.get_all_roster()
     claimed = [i for i in all_interns if i.is_claimed]
-    if template_slug == "credential-issued":
+    if audience == "single" and intern_id_single:
+        sample = sheets.get_roster_by_id(intern_id_single)
+    elif template_slug == "credential-issued":
         sample = next((i for i in claimed if i.is_capstone_completed), None) or (
             claimed[0] if claimed else None
         )
